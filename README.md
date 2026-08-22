@@ -23,6 +23,7 @@ TrackCLI es una herramienta de terminal para descargar audio y organizar metadat
 - [Opciones de linea de comandos](#opciones-de-linea-de-comandos)
 - [Formatos de audio compatibles](#formatos-de-audio-compatibles)
 - [Ejemplo de archivo de lista](#ejemplo-de-archivo-de-lista)
+- [Exencion de Responsabilidad](#exencion-de-responsabilidad)
 - [Licencia](#licencia)
 
 ---
