@@ -9,9 +9,9 @@ TrackCLI es una herramienta de terminal para descargar audio y organizar metadat
 - [Funcionalidades](#funcionalidades)
 - [Requisitos](#requisitos)
 - [Instalacion](#instalacion)
-  - [Instalacion con Git (Recomendado)](#instalacion-con-git-recomendado)
+  - [Instalacion automatica en un solo comando (Recomendado)](#instalacion-automatica-en-un-solo-comando-recomendado)
   - [Instalacion global con npm](#instalacion-global-con-npm)
-  - [Instalacion con script asistido](#instalacion-con-script-asistido)
+  - [Instalacion manual con Git](#instalacion-manual-con-git)
 - [Guia de Uso](#guia-de-uso)
   - [Modo interactivo](#modo-interactivo)
   - [Buscar y descargar por nombre](#buscar-y-descargar-por-nombre)
@@ -60,28 +60,38 @@ Para instalarlas segun tu sistema operativo:
 
 ## Instalacion
 
-### Instalacion con Git (Recomendado)
+### Instalacion automatica en un solo comando (Recomendado)
 
+Abre tu terminal y pega el comando correspondiente a tu sistema operativo. El instalador descargara y configurara las dependencias necesarias (`Node.js`, `yt-dlp`, `FFmpeg`) y dejara TrackCLI listo para usar:
+
+**macOS / Linux**:
 ```bash
-git clone https://github.com/01-Menjivar/TrackCLI.git
-cd TrackCLI
-npm link
+curl -fsSL https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.sh | bash
 ```
 
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.ps1 | iex
+```
+
+---
+
 ### Instalacion global con npm
+
+Si ya cuentas con Node.js 20+, yt-dlp y FFmpeg instalados:
 
 ```bash
 npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
 ```
 
-### Instalacion con script asistido
+---
+
+### Instalacion manual con Git
 
 ```bash
-# macOS / Linux
-chmod +x install.sh && ./install.sh
-
-# Windows (PowerShell)
-.\install.ps1
+git clone https://github.com/01-Menjivar/TrackCLI.git
+cd TrackCLI
+npm link
 ```
 
 ---

@@ -1,42 +1,62 @@
 $ErrorActionPreference = 'Stop'
-Write-Host "✦ Preparando TrackCLI para Windows..." -ForegroundColor Cyan
 
-if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    throw "Necesitas winget para este instalador. Instala Node.js 20+, yt-dlp y FFmpeg manualmente y después ejecuta: npm install -g trackcli@latest"
+Write-Host ""
+Write-Host "  TrackCLI - Instalador Automático para Windows" -ForegroundColor Cyan
+Write-Host "  =============================================" -ForegroundColor Cyan
+Write-Host ""
+
+function Refresh-EnvironmentPath {
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machinePath;$userPath"
 }
 
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host "✖ No se encontró 'winget' en este sistema." -ForegroundColor Red
+    Write-Host "Por favor instala Node.js 20+, yt-dlp y FFmpeg manualmente o activa 'App Installer' desde la Microsoft Store." -ForegroundColor Yellow
+    exit 1
+}
+
+# 1. Comprobar / Instalar Node.js
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Write-Host "› Instalando Node.js LTS..." -ForegroundColor Gray
     winget install --id OpenJS.NodeJS.LTS --silent --accept-source-agreements --accept-package-agreements
-    $nodeDirectory = Join-Path $env:ProgramFiles 'nodejs'
-    if (Test-Path $nodeDirectory) { $env:Path = "$nodeDirectory;$env:Path" }
+    Refresh-EnvironmentPath
 }
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw "Node.js se instaló pero esta sesión no lo detecta. Abre una nueva terminal y ejecuta este script de nuevo."
+    $nodeDir = Join-Path $env:ProgramFiles 'nodejs'
+    if (Test-Path $nodeDir) { $env:Path = "$nodeDir;$env:Path" }
 }
 
-if ([int](node -p "process.versions.node.split('.')[0]") -lt 20) {
-    throw "Se necesita Node.js 20 o superior. Actualízalo y vuelve a ejecutar este script."
-}
-
+# 2. Comprobar / Instalar yt-dlp
 if (-not (Get-Command yt-dlp.exe -ErrorAction SilentlyContinue)) {
     Write-Host "› Instalando yt-dlp..." -ForegroundColor Gray
     winget install --id yt-dlp.yt-dlp --silent --accept-source-agreements --accept-package-agreements
+    Refresh-EnvironmentPath
 }
+
+# 3. Comprobar / Instalar FFmpeg
 if (-not (Get-Command ffmpeg.exe -ErrorAction SilentlyContinue)) {
     Write-Host "› Instalando FFmpeg..." -ForegroundColor Gray
     winget install --id Gyan.FFmpeg --silent --accept-source-agreements --accept-package-agreements
+    Refresh-EnvironmentPath
 }
 
+# 4. Instalar TrackCLI
+Write-Host "› Instalando TrackCLI..." -ForegroundColor Gray
 if (Test-Path ".\package.json") {
-    Write-Host "› Enlazando TrackCLI localmente..." -ForegroundColor Gray
     npm link
 } else {
-    Write-Host "› Descargando e instalando TrackCLI directamente desde GitHub..." -ForegroundColor Gray
     npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
 }
 
 Write-Host ""
-Write-Host "✔ ¡Instalación completa!" -ForegroundColor Green
-Write-Host "› Abre una nueva terminal y ejecuta: trackcli doctor" -ForegroundColor Cyan
+Write-Host "  ¡Instalación completada con éxito!" -ForegroundColor Green
+Write-Host "  ----------------------------------" -ForegroundColor Green
+Write-Host "  Para comenzar, escribe en tu terminal:" -ForegroundColor White
+Write-Host "    trackcli" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  O busca una canción directamente:" -ForegroundColor White
+Write-Host "    trackcli search `"Artista - Cancion`"" -ForegroundColor Yellow
+Write-Host ""
