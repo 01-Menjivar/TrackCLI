@@ -64,8 +64,8 @@ async function guidedMode(userConfig = {}) {
   header();
 
   card('Modo interactivo', [
-    color.dim('Escribe el nombre de una canción, pega un enlace o indica un .txt.'),
-    `${color.dim('Estructura recomendada:')} ${color.bold('Canción - Artista')} ${color.dim('(ej. Artista - Canción)')}`,
+    color.dim('Escribe el nombre de una canción, pega un enlace o indica un archivo .txt.'),
+    `${color.dim('Formato recomendado:')} ${color.bold('Artista - Canción')}`,
   ]);
   console.log('');
 
@@ -73,7 +73,7 @@ async function guidedMode(userConfig = {}) {
   let defaultOutput = userConfig.output || './trackcli-downloads';
 
   while (true) {
-    const source = await ask('Canción (Canción - Artista), enlace o .txt');
+    const source = await ask('Búsqueda (Artista - Canción), enlace o .txt');
     if (!source) {
       console.log(color.dim('\n✦ Sesión finalizada.\n'));
       break;

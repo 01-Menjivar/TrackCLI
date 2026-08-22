@@ -16,7 +16,7 @@
 # 5. Enlace de YouTube:
 # https://www.youtube.com/watch?v=<ID_VIDEO>
 
-# 6. Búsqueda directa por nombre (Canción - Artista):
+# 6. Búsqueda directa por nombre (Artista - Canción):
 Artista Uno - Canción Uno
 Artista Dos - Canción Dos
 Artista Tres - Canción Tres
