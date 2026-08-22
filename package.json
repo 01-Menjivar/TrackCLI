@@ -1,0 +1,46 @@
+{
+  "name": "trackcli",
+  "version": "0.1.1",
+  "description": "CLI para extraer audio con selección heurística y metadatos por pista.",
+  "type": "module",
+  "author": "01-Menjivar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/01-Menjivar/TrackCLI.git"
+  },
+  "bugs": {
+    "url": "https://github.com/01-Menjivar/TrackCLI/issues"
+  },
+  "homepage": "https://github.com/01-Menjivar/TrackCLI#readme",
+  "bin": {
+    "trackcli": "bin/trackcli.js",
+    "track": "bin/trackcli.js",
+    "songbird": "bin/songbird.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/trackcli.js",
+    "test": "node --test",
+    "check": "node --check bin/trackcli.js && node --check bin/songbird.js && node --check src/args.js && node --check src/cli.js && node --check src/config.js && node --check src/download.js && node --check src/process.js && node --check src/requirements.js && node --check src/ui.js",
+    "prepare": "npm run check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "cli",
+    "audio",
+    "music",
+    "trackcli",
+    "yt-dlp",
+    "ffmpeg",
+    "downloader",
+    "extractor"
+  ]
+}

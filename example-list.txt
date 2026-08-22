@@ -1,0 +1,26 @@
+# Archivo de ejemplo para 'trackcli batch lista.txt'
+# Las líneas que empiezan con '#' o vacías se ignoran automáticamente.
+#
+# 1. Pista de Spotify:
+# https://open.spotify.com/track/<ID_PISTA>
+
+# 2. Álbum completo de Spotify:
+# https://open.spotify.com/album/<ID_ALBUM>
+
+# 3. Pista de Apple Music:
+# https://music.apple.com/us/album/<NOMBRE>/<ID_ALBUM>?i=<ID_PISTA>
+
+# 4. Álbum completo de Apple Music:
+# https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>
+
+# 5. Enlace de YouTube:
+# https://www.youtube.com/watch?v=<ID_VIDEO>
+
+# 6. Búsqueda directa por nombre (Canción - Artista):
+Artista Uno - Canción Uno
+Artista Dos - Canción Dos
+Artista Tres - Canción Tres
+
+
+
+

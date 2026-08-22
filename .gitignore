@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+*.mp3
+*.m4a
+*.webm
+*.opus
+*.wav
+*.flac
+*.webp
+*.part
+songbird-downloads/
+trackcli-downloads/
