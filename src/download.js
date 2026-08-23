@@ -438,12 +438,13 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
 
   const qHas = (word) => q.includes(word);
 
-  // Penalizaciones severas para videoclips y contenido audiovisual
+  // 1. Penalizaciones severas para videoclips y contenido audiovisual
+  // (Incluso si están en el canal oficial, los videoclips suelen contener diálogos, pausas o efectos sonoros)
   if (/\b(official\s+video|official\s+music\s+video|video\s+oficial|v[ií]deo\s+oficial|music\s+video|videoclip|video\s+clip|v[ií]deo\s+musical|video\s+musical)\b/i.test(title)) {
-    score -= 150;
+    score -= 180;
   }
   if (/\b(m\/?v|official\s+mv)\b/i.test(title)) {
-    score -= 120;
+    score -= 150;
   }
   if (/\b(behind\s+the\s+scenes|making\s+of|trailer|teaser|entrevista|interview|reaction|reacci[oó]n|parodia|parody|review)\b/i.test(title)) {
     score -= 200;
@@ -458,16 +459,16 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   }
   if (!qHas('cover') && !qHas('karaoke') && !qHas('instrumental')) {
     if (/\b(karaoke|instrumental|playback|backing\s+track|tutorial|piano\s+cover|guitar\s+cover|drum\s+cover|\bcover\b)\b/i.test(title)) {
-      score -= 100;
+      score -= 120;
     }
   }
   if (!qHas('live') && !qHas('en vivo') && !qHas('concierto') && !qHas('unplugged') && !qHas('acustico') && !qHas('acústico')) {
     if (/\b(live|en\s+vivo|en\s+directo|concierto|concert|tour|unplugged|ac[uú]stico|acoustic|festival)\b/i.test(title)) {
-      score -= 60;
+      score -= 70;
     }
   }
 
-  // 3B: Penalización estricta de Remixes y Ediciones no solicitadas
+  // Penalización estricta de Remixes y Ediciones no solicitadas
   const qHasRemix = /\b(remix|mix|club|edit|vip|mashup|bootleg|flip|rework|acoustic|acustico|acústico|unplugged)\b/i.test(q);
   if (!qHasRemix) {
     if (/\b(remix|club\s+mix|extended\s+mix|vip\s+mix|dance\s+mix|bootleg|flip|rework|mashup)\b/i.test(title)) {
@@ -475,7 +476,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
     }
   }
 
-  // 3C: Preferencia de versiones explícitas vs. Clean / Radio Edit
+  // Preferencia de versiones explícitas vs. Clean / Radio Edit no solicitados
   const qHasClean = /\b(clean|radio\s+edit|censored|censurado)\b/i.test(q);
   if (!qHasClean) {
     if (/\b(clean\s+version|clean\s+edit|\bclean\b|radio\s+edit|censored|edited\s+version)\b/i.test(title)) {
@@ -483,20 +484,60 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
     }
   }
 
-  // Bonificaciones para versiones puramente de audio
-  if (uploader.endsWith(' - topic') || channel.endsWith(' - topic') || uploader.includes('topic') || channel.includes('topic')) {
-    score += 90;
+  // 2. FUENTE OFICIAL: Máxima prioridad a YouTube Music Art Tracks (- Topic) y canales del artista
+  const isTopicChannel = uploader.endsWith(' - topic') || channel.endsWith(' - topic') || uploader.includes('topic') || channel.includes('topic');
+  if (isTopicChannel) {
+    score += 150; // Fuente oficial de YouTube Music (audio directo de discográfica)
   }
+
+  const queryParts = q.split(/[-–—]/).map((p) => p.trim()).filter(Boolean);
+  const potentialArtist = queryParts.length >= 2 ? queryParts[0] : '';
+  const isOfficialArtistChannel = (potentialArtist && (uploader.includes(potentialArtist) || channel.includes(potentialArtist))) ||
+    uploader.includes('vevo') || channel.includes('vevo') ||
+    uploader.includes('official') || channel.includes('official');
+
+  if (isOfficialArtistChannel && !isTopicChannel) {
+    score += 60; // Canal oficial del artista o VEVO
+  }
+
+  // 3. Verificación cruzada de duración (clave para confirmar la pista de estudio)
+  const candidateSeconds = parseDurationToSeconds(song.duration);
+  if (targetDurationSeconds > 0 && candidateSeconds > 0) {
+    const diff = Math.abs(candidateSeconds - targetDurationSeconds);
+    if (diff <= 2) {
+      score += 150; // Coincidencia exacta (±2s) con la duración de Spotify / Apple Music
+    } else if (diff <= 5) {
+      score += 90; // Coincidencia muy cercana (±5s)
+    } else if (diff <= 10) {
+      score += 30; // Coincidencia razonable
+    } else if (diff >= 30) {
+      score -= 160; // Versión con intro/diálogo de videoclip, escenas o extendida
+    } else if (diff >= 15) {
+      score -= 80; // Discrepancia notable de duración
+    }
+  } else if (candidateSeconds > 0) {
+    // Heurística estándar si no hay duración objetivo
+    if (candidateSeconds < 45 || candidateSeconds > 720) score -= 120;
+    else if (candidateSeconds >= 90 && candidateSeconds <= 360) score += 10;
+  }
+
+  // 4. Calidad del título (bonificación a títulos limpios oficiales de Art Tracks)
+  const isCleanTitle = !/\b(lyrics?|letra|vietsub|subtitulado|sub\s+esp|full\s+song|descargar|video|visualizer|audio)\b/i.test(title);
+  if (isCleanTitle && isTopicChannel) {
+    score += 30; // Título limpio oficial (solo nombre de la pista)
+  }
+
+  // Bonificaciones secundarias para versiones de audio etiquetadas
   if (/\b(official\s+audio|audio\s+oficial|official\s+audio\s+track|official\s+track)\b/i.test(title)) {
-    score += 80;
+    score += 50;
   } else if (/\b(audio|audio\s+original)\b/i.test(title)) {
-    score += 60;
+    score += 30;
   }
   if (/\b(visualizer|official\s+visualizer|visualiser)\b/i.test(title)) {
-    score += 50;
+    score += 25;
   }
   if (/\b(lyric\s+video|official\s+lyric\s+video|lyrics?\s+video|letra|lyrics?)\b/i.test(title)) {
-    score += 40;
+    score += 15;
   }
   if (/\b(remaster(ed)?|original\s+mix|studio\s+version|album\s+version)\b/i.test(title)) {
     score += 25;
@@ -505,27 +546,8 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
     score += 15;
   }
 
-  // 3A: Verificación cruzada de duración
-  const candidateSeconds = parseDurationToSeconds(song.duration);
-  if (targetDurationSeconds > 0 && candidateSeconds > 0) {
-    const diff = Math.abs(candidateSeconds - targetDurationSeconds);
-    if (diff <= 3) {
-      score += 120; // Coincidencia exacta de duración oficial
-    } else if (diff <= 8) {
-      score += 60; // Coincidencia muy cercana
-    } else if (diff >= 30) {
-      score -= 150; // Versión con intro/diálogo de videoclip o extendida
-    } else if (diff >= 15) {
-      score -= 70; // Discrepancia notable de duración
-    }
-  } else if (candidateSeconds > 0) {
-    // Heurística estándar para canciones individuales
-    if (candidateSeconds < 45 || candidateSeconds > 720) score -= 120;
-    else if (candidateSeconds >= 90 && candidateSeconds <= 360) score += 10;
-  }
-
-  // Relevancia con términos de búsqueda
-  const qTokens = q.split(/\s+/).filter((t) => t.length > 2);
+  // 5. Relevancia léxica con términos de búsqueda
+  const qTokens = q.split(/\s+/).filter((t) => t.length > 2 && !['audio', 'official', 'video', 'lyrics'].includes(t));
   for (const token of qTokens) {
     if (title.includes(token)) score += 15;
     if (uploader.includes(token) || channel.includes(token)) score += 10;
@@ -573,11 +595,11 @@ async function fetchCandidates(searchQuery) {
 }
 
 async function executeSongSearch(query, limit = 12, targetDurationSeconds = 0) {
-  const searchQuery = query.toLowerCase().includes('audio') ? `ytsearch${limit}:${query}` : `ytsearch${limit}:${query} audio`;
-  let candidates = await fetchCandidates(searchQuery);
+  const cleanQuery = query.trim();
+  let candidates = await fetchCandidates(`ytsearch${limit}:${cleanQuery}`);
 
-  if (!candidates.length && !query.toLowerCase().includes('audio')) {
-    candidates = await fetchCandidates(`ytsearch${limit}:${query}`);
+  if (!candidates.length && !cleanQuery.toLowerCase().includes('audio')) {
+    candidates = await fetchCandidates(`ytsearch${limit}:${cleanQuery} audio`);
   }
 
   const scored = candidates.map((song) => ({

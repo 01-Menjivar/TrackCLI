@@ -69,9 +69,24 @@ test('evalúa y penaliza videoclips frente a versiones oficiales de audio', () =
   const scoreTopic = scoreAudioCandidate(topicTrack, 'Daft Punk Get Lucky');
   const scoreSlowed = scoreAudioCandidate(slowedReverb, 'Daft Punk Get Lucky');
 
+  assert.ok(scoreTopic > scoreAudio, 'Topic/Art track oficial debe tener mayor puntuación que Official Audio genérico');
   assert.ok(scoreAudio > scoreVideo, 'Official Audio debe tener mayor puntuación que Official Video');
   assert.ok(scoreTopic > scoreVideo, 'Topic/Art track debe tener mayor puntuación que Official Video');
   assert.ok(scoreAudio > scoreSlowed, 'Official Audio debe tener mayor puntuación que Slowed+Reverb');
+});
+
+test('prioriza fuente oficial de YouTube Music (Topic) con duración coincidente sobre subidas de terceros', () => {
+  const targetSeconds = 249; // 4:09 en Spotify
+  const officialTopic = { title: 'Get Lucky', uploader: 'Daft Punk - Topic', duration: '4:09' };
+  const thirdPartyAudio = { title: 'Daft Punk - Get Lucky (Official Audio)', uploader: 'Random Channel', duration: '4:12' };
+  const officialVideo = { title: 'Daft Punk - Get Lucky (Official Video)', uploader: 'Daft Punk', duration: '4:08' };
+
+  const scoreTopic = scoreAudioCandidate(officialTopic, 'Daft Punk Get Lucky', targetSeconds);
+  const scoreThirdParty = scoreAudioCandidate(thirdPartyAudio, 'Daft Punk Get Lucky', targetSeconds);
+  const scoreVideo = scoreAudioCandidate(officialVideo, 'Daft Punk Get Lucky', targetSeconds);
+
+  assert.ok(scoreTopic > scoreThirdParty, 'Art Track oficial con duración exacta debe superar a re-subidas de terceros');
+  assert.ok(scoreTopic > scoreVideo, 'Art Track oficial debe superar al videoclip del canal oficial');
 });
 
 test('parseDurationToSeconds interpreta formatos ISO 8601, marcas de tiempo y segundos', () => {
