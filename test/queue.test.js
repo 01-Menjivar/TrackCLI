@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chmod, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { downloadOne, fileExistsAndNotEmpty, findBestAudioSong, isStreamingUrl, isWebUrl, mapConcurrent, parseDurationToSeconds, readQueue, resolveBatchEntries, resolveStreamingMetadata, runQueue, scoreAudioCandidate } from '../src/download.js';
+import { downloadOne, fileExistsAndNotEmpty, findBestAudioSong, isStreamingUrl, isWebUrl, mapConcurrent, parseDurationToSeconds, readQueue, resetMetadataCache, resetSearchCache, resolveBatchEntries, resolveStreamingMetadata, runBatchPipeline, runQueue, scoreAudioCandidate, searchSongs } from '../src/download.js';
 import { inspectRequirements, resetRequirementsCache } from '../src/requirements.js';
 
 async function createFakeYtDlp(directory, outputLines) {
@@ -330,4 +330,106 @@ test('inspectRequirements memoiza el chequeo de binarios evitando ejecuciones re
   const first = await inspectRequirements();
   const second = await inspectRequirements();
   assert.strictEqual(first, second);
+});
+
+test('resolveStreamingMetadata memoiza peticiones para evitar trabajo repetido', async () => {
+  resetMetadataCache();
+  let fetchCount = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCount++;
+    return new Response([
+      '<script type="application/ld+json">{"@type":"MusicRecording","name":"Memo Song","duration":"PT3M"}</script>',
+      '<meta content="Memo Song" property="og:title">',
+      '<meta property="og:description" content="Listen to Memo Song on Spotify. Artist · Album · Song · 2024">',
+    ].join(''), { status: 200 });
+  };
+  try {
+    const url = 'https://open.spotify.com/track/memo123456';
+    const [res1, res2] = await Promise.all([
+      resolveStreamingMetadata(url),
+      resolveStreamingMetadata(url),
+    ]);
+    assert.deepEqual(res1, res2);
+    assert.equal(fetchCount, 1, 'Solo debe haber 1 petición fetch para llamadas concurrentes con la misma URL');
+  } finally {
+    globalThis.fetch = originalFetch;
+    resetMetadataCache();
+  }
+});
+
+test('searchSongs memoiza búsquedas idénticas evitando spawn duplicado de yt-dlp', async () => {
+  resetSearchCache();
+  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
+  const captureFile = join(directory, 'search-invocations.txt');
+  await createFakeYtDlp(directory, [
+    'vid001\tMemo Search Song\tArtist\t3:00\tArtist',
+  ]);
+  const originalPath = process.env.PATH;
+  const originalCapture = process.env.TRACKCLI_CAPTURE_ARGS;
+  process.env.PATH = `${directory}${delimiter}${originalPath}`;
+  process.env.TRACKCLI_CAPTURE_ARGS = captureFile;
+
+  try {
+    const [results1, results2] = await Promise.all([
+      searchSongs('Artist Memo Search Song', 5),
+      searchSongs('Artist Memo Search Song', 5),
+    ]);
+    assert.deepEqual(results1, results2);
+    const invocations = (await readFile(captureFile, 'utf8')).trim().split(/\r?\n/).filter(Boolean);
+    assert.equal(invocations.length, 1, 'Solo debe haber 1 invocación a yt-dlp para búsquedas concurrentes idénticas');
+  } finally {
+    process.env.PATH = originalPath;
+    if (originalCapture === undefined) delete process.env.TRACKCLI_CAPTURE_ARGS;
+    else process.env.TRACKCLI_CAPTURE_ARGS = originalCapture;
+    resetSearchCache();
+  }
+});
+
+test('downloadOne detecta archivo existente antes de spawn y lo omite', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
+  const existingFile = join(directory, 'Cancion Existente.mp3');
+  await writeFile(existingFile, 'dummy audio data');
+
+  const result = await downloadOne('https://example.com/stream', {
+    format: 'mp3',
+    quality: '0',
+    output: directory,
+    overwrite: false,
+    metadata: { title: 'Cancion Existente' },
+  }, '[1/1]');
+
+  assert.equal(result.skipped, true);
+  assert.equal(result.title, 'Cancion Existente.mp3');
+});
+
+test('runBatchPipeline procesa entradas en flujo continuo (pipeline productor-consumidor)', async () => {
+  resetSearchCache();
+  resetMetadataCache();
+  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
+  await createFakeYtDlp(directory, [
+    '[download] Destination: track.webm',
+    'vid100\tTrack One\tArtist One\t3:00\tArtist One',
+    'vid200\tTrack Two\tArtist Two\t3:00\tArtist Two',
+  ]);
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${directory}${delimiter}${originalPath}`;
+  const output = join(directory, 'output-pipeline');
+
+  try {
+    const entries = ['https://example.com/one.mp3', 'https://example.com/two.mp3'];
+    const results = await runBatchPipeline(entries, {
+      format: 'mp3',
+      quality: '0',
+      output,
+      concurrency: 2,
+      overwrite: true,
+    });
+
+    assert.equal(results.length, 2);
+    assert.ok(results.every((r) => r.ok));
+    assert.ok((await stat(output)).isDirectory());
+  } finally {
+    process.env.PATH = originalPath;
+  }
 });

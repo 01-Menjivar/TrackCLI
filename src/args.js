@@ -17,7 +17,7 @@ export function parseOptions(tokens, userConfig = {}) {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token === '-m' || token === '--minimal') {
+    if (token === '-m' || token === '--minimal' || token === '--fast') {
       options.thumbnail = false;
       options.minimal = true;
       continue;

@@ -184,10 +184,21 @@ function appleMetadata(title, description) {
   return { ...generic, artist: byArtist || generic.artist };
 }
 
+const metadataCache = new Map();
+const searchCache = new Map();
+
+export function resetMetadataCache() {
+  metadataCache.clear();
+}
+
+export function resetSearchCache() {
+  searchCache.clear();
+}
+
 async function fetchStreamingPage(url) {
   const response = await fetch(url, {
     headers: { 'User-Agent': 'TrackCLI/0.1 (+https://github.com/01-Menjivar/TrackCLI)' },
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(6_000),
   });
   if (!response.ok) throw new Error(`El servicio respondió ${response.status}.`);
   return response.text();
@@ -200,57 +211,63 @@ export async function resolveStreamingMetadata(url) {
   } catch {
     return null;
   }
-  if (urlObject.hostname === 'open.spotify.com') {
-    try {
-      const html = await fetchStreamingPage(url);
-      const structured = structuredMusicMetadata(html);
-      if (structured?.isAlbum) {
-        return structured;
-      }
-
-      let title = structured?.title || metadataContent(html, 'og:title') || metadataContent(html, 'twitter:title');
-      const description = metadataContent(html, 'og:description') || metadataContent(html, 'twitter:description');
-      const parsed = spotifyMetadata(title, description);
-
-      let artist = structured?.artist || parsed.artist;
-      let album = structured?.album || parsed.album;
-      let year = structured?.year || parsed.year;
-      const durationSeconds = structured?.durationSeconds || 0;
-      const track = structured?.track || '';
-      const genre = structured?.genre || '';
-
-      if (!title || !artist) {
-        try {
-          const oembedRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
-            signal: AbortSignal.timeout(10_000),
-          });
-          if (oembedRes.ok) {
-            const oembedData = await oembedRes.json();
-            if (!title) title = oembedData.title || '';
-            if (!artist && oembedData.author_name) artist = oembedData.author_name;
-          }
-        } catch {
-          // Ignore oEmbed failure
-        }
-      }
-
-      const query = artist && title ? `${artist} ${title}` : (title || url);
-      return {
-        service: 'Spotify',
-        title: title || 'Canción de Spotify',
-        artist: artist || '',
-        album: album || '',
-        albumArtist: artist || '',
-        year: year || '',
-        track,
-        genre,
-        durationSeconds,
-        query,
-      };
-    } catch {
-      return null;
-    }
+  const cleanUrl = url.split('?')[0] + (urlObject.searchParams.get('i') ? `?i=${urlObject.searchParams.get('i')}` : '');
+  if (metadataCache.has(cleanUrl)) {
+    return metadataCache.get(cleanUrl);
   }
+
+  const promise = (async () => {
+    if (urlObject.hostname === 'open.spotify.com') {
+      try {
+        const html = await fetchStreamingPage(url);
+        const structured = structuredMusicMetadata(html);
+        if (structured?.isAlbum) {
+          return structured;
+        }
+
+        let title = structured?.title || metadataContent(html, 'og:title') || metadataContent(html, 'twitter:title');
+        const description = metadataContent(html, 'og:description') || metadataContent(html, 'twitter:description');
+        const parsed = spotifyMetadata(title, description);
+
+        let artist = structured?.artist || parsed.artist;
+        let album = structured?.album || parsed.album;
+        let year = structured?.year || parsed.year;
+        const durationSeconds = structured?.durationSeconds || 0;
+        const track = structured?.track || '';
+        const genre = structured?.genre || '';
+
+        if (!title || !artist) {
+          try {
+            const oembedRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
+              signal: AbortSignal.timeout(5_000),
+            });
+            if (oembedRes.ok) {
+              const oembedData = await oembedRes.json();
+              if (!title) title = oembedData.title || '';
+              if (!artist && oembedData.author_name) artist = oembedData.author_name;
+            }
+          } catch {
+            // Ignore oEmbed failure
+          }
+        }
+
+        const query = artist && title ? `${artist} ${title}` : (title || url);
+        return {
+          service: 'Spotify',
+          title: title || 'Canción de Spotify',
+          artist: artist || '',
+          album: album || '',
+          albumArtist: artist || '',
+          year: year || '',
+          track,
+          genre,
+          durationSeconds,
+          query,
+        };
+      } catch {
+        return null;
+      }
+    }
 
   if (/(^|\.)music\.apple\.com$/i.test(urlObject.hostname)) {
     const hasTrackParam = Boolean(urlObject.searchParams.get('i') || urlObject.pathname.includes('/song/'));
@@ -400,6 +417,16 @@ export async function resolveStreamingMetadata(url) {
   }
 
   return null;
+  })();
+
+  metadataCache.set(cleanUrl, promise);
+  try {
+    const result = await promise;
+    return result;
+  } catch (err) {
+    metadataCache.delete(cleanUrl);
+    return null;
+  }
 }
 
 export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0) {
@@ -545,7 +572,7 @@ async function fetchCandidates(searchQuery) {
   }));
 }
 
-export async function searchSongs(query, limit = 12, targetDurationSeconds = 0) {
+async function executeSongSearch(query, limit = 12, targetDurationSeconds = 0) {
   const searchQuery = query.toLowerCase().includes('audio') ? `ytsearch${limit}:${query}` : `ytsearch${limit}:${query} audio`;
   let candidates = await fetchCandidates(searchQuery);
 
@@ -560,6 +587,21 @@ export async function searchSongs(query, limit = 12, targetDurationSeconds = 0) 
 
   scored.sort((a, b) => b.score - a.score);
   return scored;
+}
+
+export async function searchSongs(query, limit = 12, targetDurationSeconds = 0) {
+  const cacheKey = `${String(query).trim().toLowerCase()}:::${limit}:::${targetDurationSeconds}`;
+  if (searchCache.has(cacheKey)) {
+    return searchCache.get(cacheKey);
+  }
+  const promise = executeSongSearch(query, limit, targetDurationSeconds);
+  searchCache.set(cacheKey, promise);
+  try {
+    return await promise;
+  } catch (err) {
+    searchCache.delete(cacheKey);
+    throw err;
+  }
 }
 
 export async function findBestAudioSong(query, targetDurationSeconds = 0) {
@@ -613,7 +655,7 @@ export async function mapConcurrent(items, limit, fn) {
 }
 
 export async function resolveBatchEntries(entries, options = {}, onProgress = null) {
-  const concurrency = options.concurrency ? Math.max(4, options.concurrency * 2) : 6;
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
   let resolvedCount = 0;
 
   const rawResults = await mapConcurrent(entries, concurrency, async (entry) => {
@@ -621,23 +663,23 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
     if (isStreamingUrl(entry)) {
       const meta = await resolveStreamingMetadata(entry);
       if (meta?.isAlbum && meta.tracks?.length) {
-        const albumJobs = [];
-        for (const tr of meta.tracks) {
+        const albumConcurrency = Math.max(1, Math.min(concurrency, 6));
+        const albumJobs = await mapConcurrent(meta.tracks, albumConcurrency, async (tr) => {
           try {
             const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
-            albumJobs.push({
+            return {
               url: song.url,
               metadata: tr,
               display: `${tr.title} · ${tr.artist || song.uploader} [${meta.service} - ${meta.title}]`,
-            });
+            };
           } catch {
-            albumJobs.push({
+            return {
               url: `ytsearch1:${tr.query} audio`,
               metadata: tr,
               display: `${tr.title} (búsqueda directa) [${meta.title}]`,
-            });
+            };
           }
-        }
+        });
         resolvedCount++;
         if (onProgress) onProgress(resolvedCount, entries.length, { display: `Álbum: ${meta.title} (${meta.tracks.length} pistas)` }, entry);
         return albumJobs;
@@ -694,10 +736,21 @@ function cleanTitle(raw) {
 export async function downloadOne(url, options, position) {
   await mkdir(options.output, { recursive: true });
 
-  if (!options.overwrite && options.metadata?.title) {
-    const candidateFile = join(options.output, `${options.metadata.title}.${options.format}`);
-    if (await fileExistsAndNotEmpty(candidateFile)) {
-      return { title: `${options.metadata.title}.${options.format}`, url, skipped: true };
+  if (!options.overwrite) {
+    const title = options.metadata?.title;
+    const artist = options.metadata?.artist;
+    const candidates = [];
+    if (title) {
+      candidates.push(join(options.output, `${title}.${options.format}`));
+      if (artist) {
+        candidates.push(join(options.output, `${artist} - ${title}.${options.format}`));
+        candidates.push(join(options.output, `${title} - ${artist}.${options.format}`));
+      }
+    }
+    for (const file of candidates) {
+      if (await fileExistsAndNotEmpty(file)) {
+        return { title: basename(file), url, skipped: true };
+      }
     }
   }
 
@@ -761,6 +814,7 @@ export async function downloadOne(url, options, position) {
 
 export async function runQueue(jobs, options) {
   const output = resolve(options.output);
+  await mkdir(output, { recursive: true });
   const concurrency = Math.max(1, options.concurrency ?? 3);
   const results = new Array(jobs.length);
   let currentIndex = 0;
@@ -788,5 +842,154 @@ export async function runQueue(jobs, options) {
   });
 
   await Promise.all(workers);
+  return results;
+}
+
+export async function runBatchPipeline(entries, options = {}) {
+  const output = resolve(options.output);
+  await mkdir(output, { recursive: true });
+
+  const searchConcurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
+  const downloadConcurrency = Math.max(1, options.concurrency ?? 3);
+
+  const readyJobs = [];
+  const results = [];
+  let resolutionDone = false;
+  let resolutionError = null;
+
+  const waiters = [];
+  const waitForJobOrDone = () => new Promise((res) => waiters.push(res));
+  const signalUpdate = () => {
+    while (waiters.length > 0) {
+      const fn = waiters.shift();
+      fn();
+    }
+  };
+
+  let downloadIndex = 0;
+
+  let entryIndex = 0;
+  const resolveWorker = async () => {
+    while (entryIndex < entries.length) {
+      const idx = entryIndex++;
+      const entry = entries[idx];
+      try {
+        let jobList = [];
+        if (isStreamingUrl(entry)) {
+          const meta = await resolveStreamingMetadata(entry);
+          if (meta?.isAlbum && meta.tracks?.length) {
+            const albumTracks = await mapConcurrent(meta.tracks, searchConcurrency, async (tr) => {
+              try {
+                const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
+                return {
+                  url: song.url,
+                  metadata: tr,
+                  display: `${tr.title} · ${tr.artist || song.uploader} [${meta.service} - ${meta.title}]`,
+                };
+              } catch {
+                return {
+                  url: `ytsearch1:${tr.query} audio`,
+                  metadata: tr,
+                  display: `${tr.title} (búsqueda directa) [${meta.title}]`,
+                };
+              }
+            });
+            jobList = albumTracks;
+          } else if (meta && meta.query) {
+            try {
+              const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+              jobList = [{
+                url: song.url,
+                metadata: meta,
+                display: `${meta.title} · ${meta.artist || song.uploader} [${meta.service}]`,
+              }];
+            } catch {
+              jobList = [{
+                url: `ytsearch1:${meta.query} audio`,
+                metadata: meta,
+                display: `${meta.title} (búsqueda directa)`,
+              }];
+            }
+          }
+        } else if (isWebUrl(entry)) {
+          jobList = [{ url: entry, display: entry }];
+        } else {
+          try {
+            const song = await findBestAudioSong(entry);
+            jobList = [{
+              url: song.url,
+              display: `${song.title} · ${song.uploader}`,
+            }];
+          } catch {
+            jobList = [{
+              url: `ytsearch1:${entry} audio`,
+              display: `${entry} (búsqueda directa)`,
+            }];
+          }
+        }
+
+        for (const j of jobList) {
+          readyJobs.push(j);
+        }
+        signalUpdate();
+      } catch {
+        // Ignore single resolution failure and continue with other batch entries
+      }
+    }
+  };
+
+  const resolveWorkers = Array.from(
+    { length: Math.min(searchConcurrency, entries.length) },
+    () => resolveWorker()
+  );
+
+  Promise.all(resolveWorkers).then(() => {
+    resolutionDone = true;
+    signalUpdate();
+  }).catch((err) => {
+    resolutionError = err;
+    resolutionDone = true;
+    signalUpdate();
+  });
+
+  const downloadWorker = async () => {
+    while (true) {
+      let job = null;
+      let jobPos = 0;
+      if (readyJobs.length > 0) {
+        job = readyJobs.shift();
+        downloadIndex++;
+        jobPos = downloadIndex;
+      } else if (resolutionDone) {
+        break;
+      } else {
+        await waitForJobOrDone();
+        continue;
+      }
+
+      if (!job) continue;
+
+      const label = `[#${jobPos}]`;
+      const jobOptions = { ...options, output, metadata: job.metadata };
+      try {
+        const result = await downloadOne(job.url, jobOptions, label);
+        results.push({ ...result, ok: true, jobIndex: jobPos - 1 });
+        const skipNotice = result.skipped ? ` ${color.dim('(ya existe)')}` : '';
+        console.log(mark('success', `${color.bold(label)} ${result.title || job.url}${skipNotice}`));
+      } catch (error) {
+        results.push({ url: job.url, ok: false, error: error.message, jobIndex: jobPos - 1 });
+        console.error(mark('error', `${color.bold(label)} ${error.message}`));
+      }
+    }
+  };
+
+  const downloadWorkers = Array.from(
+    { length: downloadConcurrency },
+    () => downloadWorker()
+  );
+
+  await Promise.all([...resolveWorkers, ...downloadWorkers]);
+  if (resolutionError) throw resolutionError;
+
   return results;
 }

@@ -175,6 +175,8 @@ export function createSpinner(initialText = '') {
   return spinner;
 }
 
+let lastProgressTime = 0;
+
 export function progress(percent, stats = {}) {
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   const termColumns = process.stdout.columns || 80;
@@ -193,8 +195,12 @@ export function progress(percent, stats = {}) {
   const truncated = truncateAnsi(line, termColumns - 2);
 
   if (process.stdout.isTTY) {
-    hideCursor();
-    process.stdout.write(`\r\x1b[2K${truncated}`);
+    const now = Date.now();
+    if (safePercent >= 100 || now - lastProgressTime >= 40) {
+      lastProgressTime = now;
+      hideCursor();
+      process.stdout.write(`\r\x1b[2K${truncated}`);
+    }
   } else {
     // Only print in intervals of ~25% in non-interactive terminals
   }

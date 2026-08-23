@@ -2,7 +2,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { parseOptions } from './args.js';
 import { getConfigPath, loadConfig, resetConfig, setConfigValue } from './config.js';
-import { findBestAudioSong, isStreamingUrl, isWebUrl, readQueue, resolveBatchEntries, resolveStreamingMetadata, runQueue, searchSongs } from './download.js';
+import { findBestAudioSong, isStreamingUrl, isWebUrl, mapConcurrent, readQueue, resolveBatchEntries, resolveStreamingMetadata, runBatchPipeline, runQueue, searchSongs } from './download.js';
 import { setupSignalHandlers, spawnTracked } from './process.js';
 import { ensureRequirements, inspectRequirements } from './requirements.js';
 import { card, color, createSpinner, header, mark, selectItemInteractive } from './ui.js';
@@ -22,7 +22,7 @@ ${color.bold('Opciones')}
   --quality <0-10>                  Calidad VBR de MP3 (0 = máxima)
   --output <carpeta>                Directorio de destino (por defecto: ./trackcli-downloads)
   --concurrency, -c <1-16>          Descargas simultáneas en cola/lotes (por defecto: 3)
-  --minimal, -m                     Modo minimal (solo audio, sin portada)
+  --minimal, -m, --fast             Modo minimal (solo audio, sin portada)
   --playlist                        Descargar playlist completa
   --no-thumbnail                    No incrustar portada
   --overwrite, -f                   Sobrescribir archivos si ya existen en destino
@@ -113,8 +113,9 @@ async function executeDownload(tokens, userConfig = {}) {
   if (!positional.length) throw new Error('Indica al menos un enlace. Ejemplo: trackcli download <URL>');
   await ensureRequirements();
 
-  const jobs = [];
-  for (const url of positional) {
+  if (positional.length === 1) {
+    const url = positional[0];
+    const jobs = [];
     if (isStreamingUrl(url)) {
       const spinner = createSpinner(`Extrayendo información de ${color.bold(url)}…`);
       const meta = await resolveStreamingMetadata(url);
@@ -148,30 +149,60 @@ async function executeDownload(tokens, userConfig = {}) {
             metadata: trackMeta,
           });
         }
-        continue;
+      } else {
+        if (!meta.query) {
+          throw new Error(`No pude leer los metadatos de ${url}. Comprueba que sea un enlace público de una pista.`);
+        }
+        card(`✦ Enlace de ${meta.service} detectado`, [
+          `  ${color.dim('Título  ')} ${color.bold(meta.title)}`,
+          `  ${color.dim('Artista ')} ${meta.artist || color.dim('(desconocido)')}`,
+          `  ${color.dim('Álbum   ')} ${meta.album || color.dim('(desconocido)')}`,
+        ]);
+        console.log('');
+        const songSpinner = createSpinner(`Localizando audio oficial de ${color.bold(meta.title)}…`);
+        try {
+          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+          jobs.push({ url: song.url, metadata: meta });
+        } finally {
+          songSpinner.stop();
+        }
       }
-
-      if (!meta.query) {
-        throw new Error(`No pude leer los metadatos de ${url}. Comprueba que sea un enlace público de una pista.`);
-      }
-      card(`✦ Enlace de ${meta.service} detectado`, [
-        `  ${color.dim('Título  ')} ${color.bold(meta.title)}`,
-        `  ${color.dim('Artista ')} ${meta.artist || color.dim('(desconocido)')}`,
-        `  ${color.dim('Álbum   ')} ${meta.album || color.dim('(desconocido)')}`,
-      ]);
-      console.log('');
-      const songSpinner = createSpinner(`Localizando audio oficial de ${color.bold(meta.title)}…`);
-      try {
-        const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
-        jobs.push({ url: song.url, metadata: meta });
-      } finally {
-        songSpinner.stop();
-      }
-      continue;
+    } else {
+      jobs.push({ url });
     }
-    jobs.push({ url });
+
+    await executeQueue(jobs, options, true);
+    return;
   }
 
+  // Multiple URLs in download command: resolve in parallel
+  const spinner = createSpinner(`Analizando ${positional.length} enlaces en paralelo…`);
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
+  const rawJobs = await mapConcurrent(positional, concurrency, async (url) => {
+    if (isStreamingUrl(url)) {
+      const meta = await resolveStreamingMetadata(url);
+      if (!meta) return [{ url }];
+      if (meta.isAlbum && meta.tracks?.length) {
+        const resolved = await resolveBatchEntries(meta.tracks.map((t) => t.query), options);
+        return meta.tracks.map((trackMeta, i) => ({
+          url: resolved[i]?.url || `ytsearch1:${trackMeta.query} audio`,
+          metadata: trackMeta,
+        }));
+      }
+      if (meta.query) {
+        try {
+          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+          return [{ url: song.url, metadata: meta }];
+        } catch {
+          return [{ url: `ytsearch1:${meta.query} audio`, metadata: meta }];
+        }
+      }
+    }
+    return [{ url }];
+  });
+  spinner.stop();
+
+  const jobs = rawJobs.flat().filter(Boolean);
   await executeQueue(jobs, options, true);
 }
 
@@ -183,29 +214,30 @@ async function executeBatch(filename, tokens, userConfig = {}) {
   console.log(mark('info', `${color.bold(entries.length)} elemento${entries.length === 1 ? '' : 's'} en ${color.dim(filename)} (concurrencia: ${options.concurrency})\n`));
   await ensureRequirements();
 
-  const spinner = createSpinner(`Analizando lista (${entries.length} entradas en paralelo)…`);
-  const resolved = await resolveBatchEntries(entries, options, (done, total, job) => {
-    if (job?.display) {
-      spinner.update(`Analizando (${done}/${total}): ${job.display}`);
-    } else {
-      spinner.update(`Analizando lista (${done}/${total})…`);
-    }
-  });
-  spinner.stop();
+  console.log(mark('info', `Destino: ${color.dim(options.output)}\n`));
+  const startTime = Date.now();
+  const results = await runBatchPipeline(entries, options);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  const successful = results.filter((item) => item.ok).length;
+  const failed = results.length - successful;
 
-  const jobs = resolved.filter(Boolean);
-  if (!jobs.length) {
+  if (!results.length) {
     throw new Error('No encontré entradas descargables en la lista. Comprueba los enlaces públicos de Spotify o Apple Music.');
   }
 
-  for (const job of jobs) {
-    if (job.display) {
-      console.log(mark('step', `${color.dim(job.display)}`));
-    }
-  }
-
   console.log('');
-  await executeQueue(jobs, options, true);
+  if (successful === results.length) {
+    card(color.green('✔ Descarga completada'), [
+      `  ${color.dim('Pistas  ')} ${color.green(`${successful} descargada${successful === 1 ? '' : 's'}`)} ${color.dim(`(${elapsed}s)`)}`,
+      `  ${color.dim('Destino ')} ${options.output}`,
+    ]);
+  } else {
+    card(color.yellow('▲ Descarga con advertencias'), [
+      `  ${color.dim('Pistas  ')} ${color.green(`${successful} completada${successful === 1 ? '' : 's'}`)} · ${color.red(`${failed} con error`)} ${color.dim(`(${elapsed}s)`)}`,
+      `  ${color.dim('Destino ')} ${options.output}`,
+    ]);
+  }
+  if (failed) process.exitCode = 1;
 }
 
 async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {

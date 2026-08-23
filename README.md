@@ -33,9 +33,10 @@ TrackCLI es una herramienta de terminal para descargar audio y organizar metadat
 - **Priorizacion de versiones de estudio**: Evalua los resultados de audio disponibles para seleccionar versiones oficiales (`Official Audio`), evitando videoclips con efectos de sonido o introducciones habladas.
 - **Cotejo de duracion**: Si se proporciona un enlace de Spotify o Apple Music, extrae la duracion oficial de la pista y la contrasta contra los candidatos de audio para asegurar la version exacta.
 - **Incrustacion automatica de metadatos e ID3**: Asigna titulo, artista, album, ano, numero de pista (`1/12`), disco y portada en alta resolucion al archivo final.
-- **Soporte de albumes completos**: Procesa enlaces de albumes de Spotify y Apple Music, descargando todas sus canciones en orden y con sus metadatos correspondientes.
-- **Descargas en paralelo**: Ejecuta descargas concurrentes para listas y albumes (`concurrency: 3` por defecto).
-- **Omision de duplicados**: Detecta si una cancion ya existe en el directorio de destino y la omite para evitar descargas redundantes.
+- **Soporte de albumes completos**: Procesa enlaces de albumes de Spotify y Apple Music, resolviendo y descargando sus canciones concurrentemente con sus metadatos correspondientes.
+- **Pipeline continuo y concurrencia optimizada**: Procesa lotes y albumes en flujo continuo (productor-consumidor), iniciando descargas de inmediato sin esperar a resolver toda la lista.
+- **Cache en memoria de metadatos y busquedas**: Deduplica peticiones concurrentes y repetidas para eliminar trabajo y consultas redundantes.
+- **Deteccion inteligente de duplicados**: Comprueba en disco multiples patrones de nombre de archivo antes de iniciar subprocesos externos, ahorrando tiempo y CPU.
 - **Selector interactivo**: Permite explorar alternativas y elegir la pista deseada mediante las flechas del teclado (`Arriba` / `Abajo`).
 - **Configuracion persistente**: Guarda preferencias de formato, carpeta de destino y nivel de concurrencia mediante el comando `trackcli config`.
 
@@ -197,8 +198,9 @@ trackcli update
 | `--quality` | | Nivel de calidad VBR para MP3 (`0` es la maxima calidad). | `0` a `10` | `0` |
 | `--output` | | Directorio donde se guardaran los archivos. | `<directorio>` | `./trackcli-downloads` |
 | `--concurrency` | `-c` | Numero de descargas simultaneas para colas y albumes. | `1` a `16` | `3` |
-| `--minimal` | `-m` | Descarga solo el audio sin portada incrustada. | Booleano | `false` |
-| `--overwrite` | `-f` | Sobrescribe archivos si ya existen en destino. | Booleano | `false` |
+| `--minimal` | `-m`, `--fast` | Descarga rapida de solo audio sin incrustar portada. | Booleano | `false` |
+| `--no-thumbnail`| `--no-cover` | Omite la descarga e incrustacion de portada. | Booleano | `false` |
+| `--overwrite` | `-f`, `--force` | Sobrescribe archivos si ya existen en destino. | Booleano | `false` |
 
 ---
 
