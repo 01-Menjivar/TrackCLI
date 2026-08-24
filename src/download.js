@@ -438,33 +438,33 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
 
   const qHas = (word) => q.includes(word);
 
-  // 1. Penalizaciones severas para videoclips y contenido audiovisual
-  // (Incluso si están en el canal oficial, los videoclips suelen contener diálogos, pausas o efectos sonoros)
+  // 1. Penalizaciones MUY severas para videoclips y contenido audiovisual con ruidos/diálogos externos
+  // (Incluso si están en el canal oficial del artista, los videoclips suelen contener diálogos, efectos sonoros o pausas)
   if (/\b(official\s+video|official\s+music\s+video|video\s+oficial|v[ií]deo\s+oficial|music\s+video|videoclip|video\s+clip|v[ií]deo\s+musical|video\s+musical)\b/i.test(title)) {
-    score -= 180;
+    score -= 350;
   }
   if (/\b(m\/?v|official\s+mv)\b/i.test(title)) {
-    score -= 150;
+    score -= 300;
   }
   if (/\b(behind\s+the\s+scenes|making\s+of|trailer|teaser|entrevista|interview|reaction|reacci[oó]n|parodia|parody|review)\b/i.test(title)) {
-    score -= 200;
+    score -= 400;
   }
   if (/\b(short|shorts|#shorts|tiktok)\b/i.test(title)) {
-    score -= 200;
+    score -= 400;
   }
   if (!qHas('slow') && !qHas('reverb') && !qHas('loop') && !qHas('sped') && !qHas('nightcore')) {
     if (/\b(slowed|reverb|sped\s+up|nightcore|pitch|\d+d\s+audio|bass\s+boost(ed)?|10\s*hours?|1\s*hour|10\s*min\s*loop|hour\s+loop)\b/i.test(title)) {
-      score -= 150;
+      score -= 300;
     }
   }
   if (!qHas('cover') && !qHas('karaoke') && !qHas('instrumental')) {
     if (/\b(karaoke|instrumental|playback|backing\s+track|tutorial|piano\s+cover|guitar\s+cover|drum\s+cover|\bcover\b)\b/i.test(title)) {
-      score -= 120;
+      score -= 250;
     }
   }
   if (!qHas('live') && !qHas('en vivo') && !qHas('concierto') && !qHas('unplugged') && !qHas('acustico') && !qHas('acústico')) {
     if (/\b(live|en\s+vivo|en\s+directo|concierto|concert|tour|unplugged|ac[uú]stico|acoustic|festival)\b/i.test(title)) {
-      score -= 70;
+      score -= 180;
     }
   }
 
@@ -472,7 +472,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   const qHasRemix = /\b(remix|mix|club|edit|vip|mashup|bootleg|flip|rework|acoustic|acustico|acústico|unplugged)\b/i.test(q);
   if (!qHasRemix) {
     if (/\b(remix|club\s+mix|extended\s+mix|vip\s+mix|dance\s+mix|bootleg|flip|rework|mashup)\b/i.test(title)) {
-      score -= 120;
+      score -= 220;
     }
   }
 
@@ -480,14 +480,14 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   const qHasClean = /\b(clean|radio\s+edit|censored|censurado)\b/i.test(q);
   if (!qHasClean) {
     if (/\b(clean\s+version|clean\s+edit|\bclean\b|radio\s+edit|censored|edited\s+version)\b/i.test(title)) {
-      score -= 100;
+      score -= 150;
     }
   }
 
-  // 2. FUENTE OFICIAL: Máxima prioridad a YouTube Music Art Tracks (- Topic) y canales del artista
+  // 2. PRIORIDAD MÁXIMA Y AGRESIVA A FUENTES OFICIALES (YouTube Music Art Tracks y Canales del Artista)
   const isTopicChannel = uploader.endsWith(' - topic') || channel.endsWith(' - topic') || uploader.includes('topic') || channel.includes('topic');
   if (isTopicChannel) {
-    score += 150; // Fuente oficial de YouTube Music (audio directo de discográfica)
+    score += 250; // Fuente oficial de YouTube Music (audio directo provisto por discográfica / sello)
   }
 
   const queryParts = q.split(/[-–—]/).map((p) => p.trim()).filter(Boolean);
@@ -497,50 +497,49 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
     uploader.includes('official') || channel.includes('official');
 
   if (isOfficialArtistChannel && !isTopicChannel) {
-    score += 60; // Canal oficial del artista o VEVO
+    score += 120; // Canal oficial del artista / VEVO
   }
 
-  // 3. Verificación cruzada de duración (clave para confirmar la pista de estudio)
+  // 3. Verificación cruzada de duración (clave para confirmar la pista de estudio idéntica a Spotify/Apple)
   const candidateSeconds = parseDurationToSeconds(song.duration);
   if (targetDurationSeconds > 0 && candidateSeconds > 0) {
     const diff = Math.abs(candidateSeconds - targetDurationSeconds);
     if (diff <= 2) {
-      score += 150; // Coincidencia exacta (±2s) con la duración de Spotify / Apple Music
+      score += 250; // Coincidencia exacta (±2s) con la duración oficial de estudio
     } else if (diff <= 5) {
-      score += 90; // Coincidencia muy cercana (±5s)
+      score += 140; // Coincidencia muy cercana (±5s)
     } else if (diff <= 10) {
-      score += 30; // Coincidencia razonable
+      score += 40; // Coincidencia aceptable
     } else if (diff >= 30) {
-      score -= 160; // Versión con intro/diálogo de videoclip, escenas o extendida
+      score -= 300; // Versión con intro/diálogo de videoclip, escenas o extendida
     } else if (diff >= 15) {
-      score -= 80; // Discrepancia notable de duración
+      score -= 150; // Discrepancia notable de duración
     }
   } else if (candidateSeconds > 0) {
-    // Heurística estándar si no hay duración objetivo
-    if (candidateSeconds < 45 || candidateSeconds > 720) score -= 120;
-    else if (candidateSeconds >= 90 && candidateSeconds <= 360) score += 10;
+    if (candidateSeconds < 45 || candidateSeconds > 720) score -= 150;
+    else if (candidateSeconds >= 90 && candidateSeconds <= 360) score += 15;
   }
 
   // 4. Calidad del título (bonificación a títulos limpios oficiales de Art Tracks)
   const isCleanTitle = !/\b(lyrics?|letra|vietsub|subtitulado|sub\s+esp|full\s+song|descargar|video|visualizer|audio)\b/i.test(title);
   if (isCleanTitle && isTopicChannel) {
-    score += 30; // Título limpio oficial (solo nombre de la pista)
+    score += 50; // Título limpio oficial (solo el nombre de la pista)
   }
 
   // Bonificaciones secundarias para versiones de audio etiquetadas
   if (/\b(official\s+audio|audio\s+oficial|official\s+audio\s+track|official\s+track)\b/i.test(title)) {
-    score += 50;
+    score += 40;
   } else if (/\b(audio|audio\s+original)\b/i.test(title)) {
-    score += 30;
+    score += 25;
   }
   if (/\b(visualizer|official\s+visualizer|visualiser)\b/i.test(title)) {
-    score += 25;
+    score += 20;
   }
   if (/\b(lyric\s+video|official\s+lyric\s+video|lyrics?\s+video|letra|lyrics?)\b/i.test(title)) {
-    score += 15;
+    score += 10;
   }
   if (/\b(remaster(ed)?|original\s+mix|studio\s+version|album\s+version)\b/i.test(title)) {
-    score += 25;
+    score += 30;
   }
   if (/\b(hq|hd\s+audio|flac|lossless)\b/i.test(title)) {
     score += 15;
@@ -757,24 +756,6 @@ function cleanTitle(raw) {
 export async function downloadOne(url, options, position) {
   await mkdir(options.output, { recursive: true });
 
-  if (!options.overwrite) {
-    const title = options.metadata?.title;
-    const artist = options.metadata?.artist;
-    const candidates = [];
-    if (title) {
-      candidates.push(join(options.output, `${title}.${options.format}`));
-      if (artist) {
-        candidates.push(join(options.output, `${artist} - ${title}.${options.format}`));
-        candidates.push(join(options.output, `${title} - ${artist}.${options.format}`));
-      }
-    }
-    for (const file of candidates) {
-      if (await fileExistsAndNotEmpty(file)) {
-        return { title: basename(file), url, skipped: true };
-      }
-    }
-  }
-
   const args = buildYtDlpArgs(url, options);
   const child = spawnTracked(ytDlpCommand, args, {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -951,10 +932,7 @@ export async function runBatchPipeline(entries, options = {}) {
         }
 
         for (const j of jobList) {
-          if (!seenJobUrls.has(j.url)) {
-            seenJobUrls.add(j.url);
-            readyJobs.push(j);
-          }
+          readyJobs.push(j);
         }
         signalUpdate();
       } catch {

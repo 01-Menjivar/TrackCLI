@@ -30,13 +30,13 @@ TrackCLI es una herramienta de terminal para descargar audio y organizar metadat
 
 ## Funcionalidades
 
-- **Priorizacion de versiones de estudio**: Evalua los resultados de audio disponibles para seleccionar versiones oficiales (`Official Audio`), evitando videoclips con efectos de sonido o introducciones habladas.
+- **Priorizacion agresiva de fuentes oficiales**: Prioriza fuertemente las pistas oficiales de **YouTube Music (*- Topic*)** y canales oficiales de artistas, garantizando audio de estudio directo de discográfica y descartando re-subidas de baja calidad.
+- **Filtro estricto anti-videoclip**: Penaliza severamente videoclips musicales (`Official Video`, `MV`, etc.) para evitar ruidos de ambiente, efectos de sonido y silencios/diálogos introductorios.
 - **Cotejo de duracion**: Si se proporciona un enlace de Spotify o Apple Music, extrae la duracion oficial de la pista y la contrasta contra los candidatos de audio para asegurar la version exacta.
 - **Incrustacion automatica de metadatos e ID3**: Asigna titulo, artista, album, ano, numero de pista (`1/12`), disco y portada en alta resolucion al archivo final.
 - **Soporte de albumes completos**: Procesa enlaces de albumes de Spotify y Apple Music, resolviendo y descargando sus canciones concurrentemente con sus metadatos correspondientes.
 - **Pipeline continuo y concurrencia optimizada**: Procesa lotes y albumes en flujo continuo (productor-consumidor), iniciando descargas de inmediato sin esperar a resolver toda la lista.
 - **Cache en memoria de metadatos y busquedas**: Deduplica peticiones concurrentes y repetidas para eliminar trabajo y consultas redundantes.
-- **Deteccion inteligente de duplicados**: Comprueba en disco multiples patrones de nombre de archivo antes de iniciar subprocesos externos, ahorrando tiempo y CPU.
 - **Selector interactivo**: Permite explorar alternativas y elegir la pista deseada mediante las flechas del teclado (`Arriba` / `Abajo`).
 - **Configuracion persistente**: Guarda preferencias de formato, carpeta de destino y nivel de concurrencia mediante el comando `trackcli config`.
 

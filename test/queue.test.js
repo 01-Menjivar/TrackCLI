@@ -401,22 +401,6 @@ test('searchSongs memoiza búsquedas idénticas evitando spawn duplicado de yt-d
   }
 });
 
-test('downloadOne detecta archivo existente antes de spawn y lo omite', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
-  const existingFile = join(directory, 'Cancion Existente.mp3');
-  await writeFile(existingFile, 'dummy audio data');
-
-  const result = await downloadOne('https://example.com/stream', {
-    format: 'mp3',
-    quality: '0',
-    output: directory,
-    overwrite: false,
-    metadata: { title: 'Cancion Existente' },
-  }, '[1/1]');
-
-  assert.equal(result.skipped, true);
-  assert.equal(result.title, 'Cancion Existente.mp3');
-});
 
 test('runBatchPipeline procesa entradas en flujo continuo (pipeline productor-consumidor)', async () => {
   resetSearchCache();
