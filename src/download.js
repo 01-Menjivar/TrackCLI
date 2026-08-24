@@ -559,7 +559,6 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
 async function fetchCandidates(searchQuery) {
   const args = [
     '--flat-playlist', '--no-warnings',
-    '--extractor-args', 'youtube:player_client=web,android,mweb,ios',
     '--print', '%(id)s\t%(title)s\t%(uploader)s\t%(duration_string)s\t%(channel)s',
     '--', searchQuery,
   ];
@@ -594,7 +593,7 @@ async function fetchCandidates(searchQuery) {
   }));
 }
 
-async function executeSongSearch(query, limit = 12, targetDurationSeconds = 0) {
+async function executeSongSearch(query, limit = 5, targetDurationSeconds = 0) {
   const cleanQuery = query.trim();
   let candidates = await fetchCandidates(`ytsearch${limit}:${cleanQuery}`);
 
@@ -611,7 +610,7 @@ async function executeSongSearch(query, limit = 12, targetDurationSeconds = 0) {
   return scored;
 }
 
-export async function searchSongs(query, limit = 12, targetDurationSeconds = 0) {
+export async function searchSongs(query, limit = 5, targetDurationSeconds = 0) {
   const cacheKey = `${String(query).trim().toLowerCase()}:::${limit}:::${targetDurationSeconds}`;
   if (searchCache.has(cacheKey)) {
     return searchCache.get(cacheKey);
@@ -627,7 +626,7 @@ export async function searchSongs(query, limit = 12, targetDurationSeconds = 0) 
 }
 
 export async function findBestAudioSong(query, targetDurationSeconds = 0) {
-  const results = await searchSongs(query, 12, targetDurationSeconds);
+  const results = await searchSongs(query, 5, targetDurationSeconds);
   if (!results.length) {
     throw new Error('No encontré resultados de audio para esa búsqueda. Prueba con título y artista.');
   }
@@ -871,7 +870,7 @@ export async function runBatchPipeline(entries, options = {}) {
   const output = resolve(options.output);
   await mkdir(output, { recursive: true });
 
-  const searchConcurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
+  const searchConcurrency = Math.max(1, Math.min(options.concurrency ?? 3, 3));
   const downloadConcurrency = Math.max(1, options.concurrency ?? 3);
 
   const readyJobs = [];
@@ -890,6 +889,7 @@ export async function runBatchPipeline(entries, options = {}) {
 
   let downloadIndex = 0;
 
+  const seenJobUrls = new Set();
   let entryIndex = 0;
   const resolveWorker = async () => {
     while (entryIndex < entries.length) {
@@ -951,7 +951,10 @@ export async function runBatchPipeline(entries, options = {}) {
         }
 
         for (const j of jobList) {
-          readyJobs.push(j);
+          if (!seenJobUrls.has(j.url)) {
+            seenJobUrls.add(j.url);
+            readyJobs.push(j);
+          }
         }
         signalUpdate();
       } catch {
