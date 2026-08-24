@@ -91,13 +91,13 @@ export function buildYtDlpArgs(url, options) {
     '--newline',
     '--progress',
     '--format', 'bestaudio/best',
-    '--extractor-args', 'youtube:player_client=web_embedded,web',
+    '--extractor-args', 'youtube:player_client=web,mweb',
     '--extract-audio',
     '--audio-format', options.format,
     '--output', output,
     '--add-metadata',
     '--parse-metadata', '%(title)s:%(artist)s - %(track)s',
-    '--continue',
+    '--no-continue',
   ];
   if (options.overwrite) {
     args.push('--force-overwrites');
