@@ -31,3 +31,17 @@ test('Smart CLI Routing: rechaza comandos y banderas inválidas', async () => {
     /No conozco la opción --opcion-invalida/
   );
 });
+
+test('Smart CLI Routing: sin argumentos en entorno no-TTY muestra ayuda', async () => {
+  let logOut = '';
+  const originalLog = console.log;
+  console.log = (...args) => { logOut += args.join(' ') + '\n'; };
+
+  try {
+    await run([]);
+    assert.ok(logOut.includes('TrackCLI'));
+    assert.ok(logOut.includes('menú interactivo'));
+  } finally {
+    console.log = originalLog;
+  }
+});

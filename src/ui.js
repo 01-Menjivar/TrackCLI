@@ -219,10 +219,16 @@ export function endProgress() {
   }
 }
 
-export async function selectItemInteractive(items, formatLabel = (item) => item.title || String(item), askFallback = null) {
+export async function selectItemInteractive(
+  items,
+  formatLabel = (item) => item.title || String(item),
+  askFallback = null,
+  { title = '', clearOnSelect = false } = {}
+) {
   if (!items.length) return null;
 
   if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== 'function') {
+    if (title) console.log(title);
     items.forEach((item, idx) => {
       console.log(`  ${color.cyan(`${idx + 1}.`)} ${formatLabel(item)}`);
     });
@@ -238,10 +244,11 @@ export async function selectItemInteractive(items, formatLabel = (item) => item.
   let selectedIndex = 0;
   hideCursor();
 
+  const titleLines = title ? title.split('\n').length : 0;
   const render = () => {
     const termColumns = process.stdout.columns || 80;
     const maxLabelLen = Math.max(12, termColumns - 6);
-    let text = '';
+    let text = title ? `${title}\n` : '';
     items.forEach((item, idx) => {
       const isSelected = idx === selectedIndex;
       const pointer = isSelected ? color.cyan('❯ ') : '  ';
@@ -254,7 +261,7 @@ export async function selectItemInteractive(items, formatLabel = (item) => item.
   };
 
   process.stdout.write(render());
-  const linesToClear = items.length + 2;
+  const linesToClear = items.length + 2 + titleLines;
 
   const clearLines = () => {
     for (let i = 0; i < linesToClear; i++) {
@@ -267,15 +274,18 @@ export async function selectItemInteractive(items, formatLabel = (item) => item.
       const key = data.toString();
 
       if (key === '\u0003') {
+        if (clearOnSelect) clearLines();
         cleanup();
         process.exit(130);
       }
       if (key === '\u001b' || key === 'q' || key === 'Q') {
+        if (clearOnSelect) clearLines();
         cleanup();
         resolve(null);
         return;
       }
       if (key === '\r' || key === '\n') {
+        if (clearOnSelect) clearLines();
         cleanup();
         resolve(items[selectedIndex]);
         return;
@@ -295,11 +305,13 @@ export async function selectItemInteractive(items, formatLabel = (item) => item.
       const num = parseInt(key, 10);
       if (!isNaN(num) && num >= 1 && num <= items.length) {
         selectedIndex = num - 1;
+        if (clearOnSelect) clearLines();
         cleanup();
         resolve(items[selectedIndex]);
         return;
       }
       if (key === '0') {
+        if (clearOnSelect) clearLines();
         cleanup();
         resolve(null);
         return;

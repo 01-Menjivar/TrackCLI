@@ -20,7 +20,7 @@ TrackCLI automatiza la localización y descarga de audio a partir de búsquedas 
   - [Instalación global con npm](#instalación-global-con-npm)
 - [Guía de Uso](#guía-de-uso)
   - [Despacho inteligente (Smart Routing)](#despacho-inteligente-smart-routing)
-  - [Modo interactivo continuo](#modo-interactivo-continuo)
+  - [Menú interactivo](#menú-interactivo)
   - [Búsqueda por nombre](#búsqueda-por-nombre)
   - [Descarga por enlace (Pistas y Álbumes)](#descarga-por-enlace-pistas-y-álbumes)
   - [Descarga por lotes (archivo .txt)](#descarga-por-lotes-archivo-txt)
@@ -39,7 +39,7 @@ TrackCLI opera tanto de forma interactiva como desatendida mediante dos componen
 
 ### 1. Modos de interacción
 
-- **Modo interactivo asistido (`trackcli`):** Al ejecutar el comando sin argumentos, se inicia una consola guiada donde se puede introducir el nombre de una pista, pegar un enlace de streaming o indicar un archivo `.txt`.
+- **Menú interactivo (`trackcli`):** Al ejecutar el comando sin argumentos, se despliega un menú navegable con las flechas del teclado (`↑` / `↓` / `Enter`) que permite acceder a todas las funciones (búsqueda, descarga por enlace/álbum, listas por lotes, configuración persistente o diagnóstico) sin forzar una búsqueda inmediata.
   - **Confirmación inteligente:** Al buscar por nombre, el sistema analiza las fuentes y propone la mejor coincidencia oficial encontrada.
   - **Selector interactivo:** Si la coincidencia propuesta no es la deseada, se despliega un menú en terminal navegable con las flechas del teclado (`↑` / `↓` / `Enter`), mostrando las pistas alternativas junto con su canal y duración para seleccionar la versión correcta o reintentar la búsqueda sin abandonar la sesión.
 - **Modo de comandos directos:** Permite la ejecución directa y la automatización mediante subcomandos explícitos (`search`, `download`, `batch`), flags de configuración y procesamiento concurrente.
@@ -140,12 +140,12 @@ trackcli lista.txt -c 4
 
 *(Los subcomandos explícitos `search`, `download` y `batch` se mantienen disponibles para scripts y automatizaciones).*
 
-### Modo interactivo continuo
-Inicia una consola guiada para procesar múltiples canciones sin reiniciar la herramienta:
+### Menú interactivo
+Inicia el entorno interactivo navegable para buscar canciones, descargar enlaces o álbumes, procesar listas, ajustar configuración o ejecutar diagnósticos sin necesidad de recordar parámetros ni forzar búsquedas inmediatas:
 ```bash
 trackcli
 ```
-*Tus preferencias de formato y carpeta se configuran en la primera pista y se reutilizan en las siguientes para agilizar la sesión.*
+*Navega con `↑` / `↓`, confirma con `Enter` y cancela con `Esc` o `q`.*
 
 ### Búsqueda por nombre
 ```bash

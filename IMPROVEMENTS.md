@@ -50,10 +50,10 @@ Este plan está diseñado bajo una filosofía de **software honesto, transparent
     - Mantener los comandos explícitos (`search`, `download`, `batch`) para scripts o usuarios avanzados.
   - **Archivos:** `src/cli.js`, `test/cli.test.js`.
 
-- [x] **2.2 Modo interactivo continuo (`guidedMode`)**
-  - **Problema:** Al descargar múltiples canciones en la misma sesión, el CLI vuelve a solicitar el formato y la carpeta de destino en cada vuelta del bucle.
-  - **Acción:** Preguntar formato y carpeta solo en la primera pista (o tomar la configuración guardada por defecto) y en las siguientes iteraciones pedir directamente la canción/enlace, permitiendo un flujo rápido.
-  - **Archivos:** `src/cli.js`.
+- [x] **2.2 Menú interactivo navegable (`interactiveMenu`)**
+  - **Problema:** Al ejecutar `trackcli` sin argumentos, se iniciaba un asistente que forzaba una búsqueda inmediata y exigía comandos artificiales como `/config` dentro de un prompt de búsqueda.
+  - **Acción:** Reemplazar el asistente rígido por un menú interactivo navegable con flechas (`↑` / `↓` / `Enter`) para seleccionar la acción a realizar (búsqueda, descarga de URL/álbum, lotes, configuración persistente o diagnóstico) sin fricción.
+  - **Archivos:** `src/cli.js`, `src/ui.js`, `test/cli.test.js`.
 
 ---
 

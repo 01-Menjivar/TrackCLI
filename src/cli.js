@@ -10,7 +10,7 @@ import { card, color, createSpinner, header, mark, selectItemInteractive } from 
 
 const HELP = `
 ${color.bold('Uso')}
-  trackcli                                modo interactivo guiado
+  trackcli                                menú interactivo (búsqueda, descargas, config)
   trackcli <canción>                      busca y descarga una pista
   trackcli <URL...>                       descarga desde enlaces (Spotify, Apple Music, YouTube)
   trackcli <archivo.txt>                  descarga por lotes desde un listado
@@ -58,77 +58,158 @@ async function ask(question, defaultValue = '') {
   return answer.trim() || defaultValue;
 }
 
-async function guidedMode(userConfig = {}) {
+async function interactiveConfig(activeConfig) {
+  while (true) {
+    const cfg = await loadConfig();
+    const configPath = getConfigPath();
+    const lines = [
+      `  ${color.dim('Formato     ')} ${color.bold(cfg.format)}`,
+      `  ${color.dim('Destino     ')} ${color.bold(cfg.output)}`,
+      `  ${color.dim('Concurrencia')} ${color.bold(String(cfg.concurrency))}`,
+      `  ${color.dim('Carátula    ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
+    ];
+    if (cfg.cookiesBrowser) {
+      lines.push(`  ${color.dim('Cookies nav ')} ${color.bold(cfg.cookiesBrowser)}`);
+    }
+    if (cfg.cookies) {
+      lines.push(`  ${color.dim('Cookies doc ')} ${color.dim(cfg.cookies)}`);
+    }
+    lines.push(`  ${color.dim('Archivo     ')} ${color.dim(configPath)}`);
+    card('⚙ Configuración actual', lines);
+
+    const CONFIG_ACTIONS = [
+      { id: 'format', label: `Cambiar formato de audio (actual: ${cfg.format})` },
+      { id: 'output', label: `Cambiar carpeta de destino (actual: ${cfg.output})` },
+      { id: 'concurrency', label: `Cambiar descargas simultáneas (actual: ${cfg.concurrency})` },
+      { id: 'reset', label: 'Restablecer valores por defecto' },
+      { id: 'back', label: '← Volver al menú principal' },
+    ];
+
+    const action = await selectItemInteractive(
+      CONFIG_ACTIONS,
+      (item) => item.label,
+      ask,
+      { title: color.bold('Opciones de configuración:'), clearOnSelect: true }
+    );
+
+    if (!action || action.id === 'back') {
+      return cfg;
+    }
+
+    if (action.id === 'format') {
+      const FORMAT_OPTIONS = [
+        { id: 'mp3', label: 'mp3  · Máxima compatibilidad con cualquier reproductor' },
+        { id: 'm4a', label: 'm4a  · AAC de alta calidad (ideal iPhone / Apple)' },
+        { id: 'opus', label: 'opus · Original de YouTube sin recodificar (máxima fidelidad)' },
+        { id: 'flac', label: 'flac · Audio sin pérdida (lossless)' },
+        { id: 'wav', label: 'wav  · Audio PCM sin comprimir' },
+      ];
+      const selectedFormat = await selectItemInteractive(
+        FORMAT_OPTIONS,
+        (item) => item.label,
+        ask,
+        { title: color.bold('Selecciona el formato:'), clearOnSelect: true }
+      );
+      if (selectedFormat) {
+        await setConfigValue('format', selectedFormat.id);
+        console.log(mark('success', `Formato actualizado a: ${color.bold(selectedFormat.id)}\n`));
+      }
+    } else if (action.id === 'output') {
+      const newOutput = await ask('Nueva carpeta de destino', cfg.output);
+      if (newOutput && newOutput !== cfg.output) {
+        await setConfigValue('output', newOutput);
+        console.log(mark('success', `Carpeta actualizada a: ${color.bold(newOutput)}\n`));
+      }
+    } else if (action.id === 'concurrency') {
+      const newConcurrency = await ask('Concurrencia (1 a 6)', String(cfg.concurrency));
+      if (newConcurrency) {
+        try {
+          await setConfigValue('concurrency', newConcurrency);
+          console.log(mark('success', `Concurrencia actualizada a: ${color.bold(newConcurrency)}\n`));
+        } catch (err) {
+          console.log(mark('error', err.message + '\n'));
+        }
+      }
+    } else if (action.id === 'reset') {
+      await resetConfig();
+      console.log(mark('success', 'Configuración restablecida a los valores por defecto.\n'));
+    }
+  }
+}
+
+async function interactiveMenu(userConfig = {}) {
   if (!process.stdin.isTTY) {
     showHelp();
     return;
   }
   header();
 
-  console.log(color.dim('Modo interactivo · Escribe una canción o enlace (/help para opciones)\n'));
+  let activeConfig = { ...userConfig };
 
-  let defaultFormat = userConfig.format || 'mp3';
-  let defaultOutput = userConfig.output || './trackcli-downloads';
-  let askPreferences = true;
+  const MENU_OPTIONS = [
+    { id: 'search', label: 'Buscar y descargar canción' },
+    { id: 'download', label: 'Descargar enlace o álbum (URL)' },
+    { id: 'batch', label: 'Procesar lista de enlaces (.txt)' },
+    { id: 'config', label: 'Configuración' },
+    { id: 'doctor', label: 'Diagnóstico del sistema' },
+    { id: 'exit', label: 'Salir' },
+  ];
 
   while (true) {
-    const source = await ask('Canción o enlace');
-    if (!source || source === '/exit' || source === 'exit' || source === ':q') {
-      console.log(color.dim('\n✦ Sesión finalizada.\n'));
+    const selected = await selectItemInteractive(
+      MENU_OPTIONS,
+      (item) => item.label,
+      ask,
+      { title: color.bold('¿Qué deseas hacer?'), clearOnSelect: true }
+    );
+
+    if (!selected || selected.id === 'exit') {
+      console.log(color.dim('\n✦ ¡Hasta luego!\n'));
       break;
     }
 
-    if (source === '/help') {
-      console.log(`\n${color.bold('Comandos disponibles:')}`);
-      console.log(`  ${color.cyan('/config')}  ${color.dim('Cambiar formato o carpeta de destino')}`);
-      console.log(`  ${color.cyan('/exit')}    ${color.dim('Finalizar la sesión interactiva')}\n`);
-      continue;
-    }
-
-    if (source === '/config') {
-      const format = (await ask('Formato [mp3/m4a/opus]', defaultFormat)).toLowerCase();
-      defaultFormat = format;
-      const output = await ask('Carpeta de destino', defaultOutput);
-      defaultOutput = output;
-      askPreferences = false;
+    if (selected.id === 'search') {
+      const query = await ask('Canción o artista');
+      if (query) {
+        console.log('');
+        try {
+          const tokens = ['--format', activeConfig.format || 'mp3', '--output', activeConfig.output || './trackcli-downloads'];
+          await executeSearchInteractive(query, tokens, activeConfig);
+        } catch (err) {
+          console.log(mark('error', err.message));
+        }
+      }
       console.log('');
-      continue;
+    } else if (selected.id === 'download') {
+      const url = await ask('Enlace de YouTube, Spotify o Apple Music');
+      if (url) {
+        console.log('');
+        try {
+          const tokens = [url, '--format', activeConfig.format || 'mp3', '--output', activeConfig.output || './trackcli-downloads'];
+          await executeDownload(tokens, activeConfig);
+        } catch (err) {
+          console.log(mark('error', err.message));
+        }
+      }
+      console.log('');
+    } else if (selected.id === 'batch') {
+      const filePath = await ask('Ruta del archivo de texto (.txt)');
+      if (filePath) {
+        console.log('');
+        try {
+          const tokens = ['--format', activeConfig.format || 'mp3', '--output', activeConfig.output || './trackcli-downloads'];
+          await executeBatch(filePath, tokens, activeConfig);
+        } catch (err) {
+          console.log(mark('error', err.message));
+        }
+      }
+      console.log('');
+    } else if (selected.id === 'config') {
+      activeConfig = await interactiveConfig(activeConfig);
+    } else if (selected.id === 'doctor') {
+      await doctor();
+      console.log('');
     }
-
-    if (askPreferences) {
-      const format = (await ask('Formato [mp3/m4a/opus]', defaultFormat)).toLowerCase();
-      defaultFormat = format;
-
-      const output = await ask('Carpeta de destino', defaultOutput);
-      defaultOutput = output;
-      askPreferences = false;
-    }
-
-    console.log('');
-    const tokens = ['--format', defaultFormat, '--output', defaultOutput];
-
-    if (source.endsWith('.txt')) {
-      await executeBatch(source, tokens, userConfig);
-    } else if (isStreamingUrl(source)) {
-      await executeDownload([source, ...tokens], userConfig);
-    } else if (isWebUrl(source)) {
-      await executeDownload([source, ...tokens], userConfig);
-    } else {
-      await executeSearchInteractive(source, tokens, userConfig);
-    }
-
-    console.log('');
-    const continueChoice = (await ask('¿Descargar otra canción? [Y/n]', 'y')).toLowerCase();
-    if (continueChoice === 'c' || continueChoice === 'config') {
-      askPreferences = true;
-      console.log('\n' + color.dim('─'.repeat(44)) + '\n');
-      continue;
-    }
-    if (continueChoice === 'n' || continueChoice === 'no') {
-      console.log(color.dim(`\n✦ ¡Listo! Tus canciones están en ${color.cyan(defaultOutput)}\n`));
-      break;
-    }
-    console.log('\n' + color.dim('─'.repeat(44)) + '\n');
   }
 }
 
@@ -303,13 +384,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
     const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
     const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
-    card('✦ Canción encontrada', [
-      `  ${color.dim('Título  ')} ${color.bold(best.title)}`,
-      `  ${color.dim('Artista ')} ${best.uploader}`,
-      `  ${color.dim('Duración')} ${best.duration}`,
-      `  ${color.dim('Formato ')} ${formatTag}`,
-    ]);
-    console.log('');
+    console.log(mark('info', `Encontrada: ${color.bold(best.title)} ${color.dim(`[${best.duration}] · ${best.uploader}`)} ${color.dim(`(${formatTag})`)}`));
 
     const confirm = (await ask('¿Es esta canción? [Y/n]', 'y')).toLowerCase();
 
@@ -318,8 +393,12 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
       return;
     }
 
-    console.log(`\n${color.bold('Selecciona una opción:')}`);
-    const selected = await selectItemInteractive(candidates, (c) => `${c.title} ${color.dim(`[${c.duration}] · ${c.uploader}`)}`, ask);
+    const selected = await selectItemInteractive(
+      candidates,
+      (c) => `${c.title} ${color.dim(`[${c.duration}] · ${c.uploader}`)}`,
+      ask,
+      { title: color.bold('Selecciona una opción:'), clearOnSelect: true }
+    );
 
     if (selected) {
       console.log(mark('info', `Seleccionada: ${color.bold(selected.title)} ${color.dim(`[${selected.duration}] · ${selected.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
@@ -507,7 +586,7 @@ export async function run(argv) {
   setupSignalHandlers();
   const userConfig = await loadConfig();
   const [command, ...rest] = argv;
-  if (!command) return guidedMode(userConfig);
+  if (!command || command === 'interactive' || command === 'menu') return interactiveMenu(userConfig);
   if (['help', '--help', '-h'].includes(command)) return showHelp();
   if (['version', '--version', '-v'].includes(command)) return console.log('TrackCLI 0.1.1');
   if (command === 'doctor') return doctor();
