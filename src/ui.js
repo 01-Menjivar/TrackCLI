@@ -1,4 +1,8 @@
-const enabled = process.env.NO_COLOR === undefined && process.env.TERM !== 'dumb';
+const isOutputColorable = process.env.FORCE_COLOR !== undefined ||
+  Boolean(process.stdout.isTTY) ||
+  process.env.NODE_ENV === 'test' ||
+  Boolean(process.env.npm_lifecycle_event);
+const enabled = process.env.NO_COLOR === undefined && process.env.TERM !== 'dumb' && isOutputColorable;
 const isTrueColor = enabled && (
   Boolean(process.env.COLORTERM) ||
   process.platform === 'darwin' ||
@@ -115,8 +119,10 @@ export function createSpinner(initialText = '') {
 
   const render = () => {
     if (!isTTY) return;
+    const maxLen = Math.max(10, (process.stdout.columns || 80) - 4);
+    const text = truncateAnsi(currentText, maxLen);
     const frame = color.cyan(frames[frameIndex % frames.length]);
-    process.stdout.write(`\r\x1b[2K${frame} ${currentText}`);
+    process.stdout.write(`\r\x1b[2K${frame} ${text}`);
     frameIndex++;
   };
 
@@ -180,7 +186,7 @@ let lastProgressTime = 0;
 export function progress(percent, stats = {}) {
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   const termColumns = process.stdout.columns || 80;
-  const blocks = 18;
+  const blocks = termColumns < 60 ? 10 : termColumns < 90 ? 14 : 18;
   const filled = Math.round((safePercent / 100) * blocks);
   const empty = Math.max(0, blocks - filled);
   const bar = `${color.cyan('█'.repeat(filled))}${color.dim('░'.repeat(empty))}`;
@@ -233,14 +239,17 @@ export async function selectItemInteractive(items, formatLabel = (item) => item.
   hideCursor();
 
   const render = () => {
+    const termColumns = process.stdout.columns || 80;
+    const maxLabelLen = Math.max(12, termColumns - 6);
     let text = '';
     items.forEach((item, idx) => {
       const isSelected = idx === selectedIndex;
       const pointer = isSelected ? color.cyan('❯ ') : '  ';
-      const label = isSelected ? color.bold(color.cyan(formatLabel(item))) : color.dim(formatLabel(item));
+      const safeLabel = truncateAnsi(formatLabel(item), maxLabelLen);
+      const label = isSelected ? color.bold(color.cyan(safeLabel)) : color.dim(safeLabel);
       text += `${pointer}${label}\n`;
     });
-    text += `\n  ${color.dim('Navega con')} ${color.bold('↑ / ↓')} ${color.dim('·')} ${color.bold('Enter')} ${color.dim('confirmar ·')} ${color.bold('Esc')} ${color.dim('cancelar')}\n`;
+    text += `\n  ${color.dim('↑/↓')} ${color.dim('navegar ·')} ${color.bold('Enter')} ${color.dim('elegir ·')} ${color.bold('Esc')} ${color.dim('cancelar')}\n`;
     return text;
   };
 

@@ -65,10 +65,7 @@ async function guidedMode(userConfig = {}) {
   }
   header();
 
-  card('Modo interactivo', [
-    color.dim('Escribe una canción o enlace. Escribe /help para ver opciones.'),
-  ]);
-  console.log('');
+  console.log(color.dim('Modo interactivo · Escribe una canción o enlace (/help para opciones)\n'));
 
   let defaultFormat = userConfig.format || 'mp3';
   let defaultOutput = userConfig.output || './trackcli-downloads';
@@ -82,11 +79,9 @@ async function guidedMode(userConfig = {}) {
     }
 
     if (source === '/help') {
-      card('Comandos', [
-        `  ${color.cyan('/config')}  ${color.dim('Cambiar formato y carpeta de destino')}`,
-        `  ${color.cyan('/exit')}    ${color.dim('Finalizar la sesión interactiva')}`,
-      ]);
-      console.log('');
+      console.log(`\n${color.bold('Comandos disponibles:')}`);
+      console.log(`  ${color.cyan('/config')}  ${color.dim('Cambiar formato o carpeta de destino')}`);
+      console.log(`  ${color.cyan('/exit')}    ${color.dim('Finalizar la sesión interactiva')}\n`);
       continue;
     }
 
@@ -187,12 +182,7 @@ async function executeDownload(tokens, userConfig = {}) {
         if (!meta.query) {
           throw new Error(`No pude leer los metadatos de ${url}. Comprueba que sea un enlace público de una pista.`);
         }
-        card(`✦ Enlace de ${meta.service} detectado`, [
-          `  ${color.dim('Título  ')} ${color.bold(meta.title)}`,
-          `  ${color.dim('Artista ')} ${meta.artist || color.dim('(desconocido)')}`,
-          `  ${color.dim('Álbum   ')} ${meta.album || color.dim('(desconocido)')}`,
-        ]);
-        console.log('');
+        console.log(mark('info', `${meta.service}: ${color.bold(meta.title)} · ${meta.artist || color.dim('(desconocido)')}${meta.album ? color.dim(` [${meta.album}]`) : ''}\n`));
         const songSpinner = createSpinner(`Localizando audio oficial de ${color.bold(meta.title)}…`);
         try {
           const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
@@ -332,13 +322,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
     const selected = await selectItemInteractive(candidates, (c) => `${c.title} ${color.dim(`[${c.duration}] · ${c.uploader}`)}`, ask);
 
     if (selected) {
-      card('✦ Opción seleccionada', [
-        `  ${color.dim('Título  ')} ${color.bold(selected.title)}`,
-        `  ${color.dim('Artista ')} ${selected.uploader}`,
-        `  ${color.dim('Duración')} ${selected.duration}`,
-        `  ${color.dim('Formato ')} ${formatTag}`,
-      ]);
-      console.log('');
+      console.log(mark('info', `Seleccionada: ${color.bold(selected.title)} ${color.dim(`[${selected.duration}] · ${selected.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
       await executeQueue([selected.url], options, true);
       return;
     }
@@ -371,13 +355,7 @@ async function executeSearch(tokens, userConfig = {}) {
   const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
   const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
-  card('✦ Canción encontrada', [
-    `  ${color.dim('Título  ')} ${color.bold(song.title)}`,
-    `  ${color.dim('Artista ')} ${song.uploader}`,
-    `  ${color.dim('Duración')} ${song.duration}`,
-    `  ${color.dim('Formato ')} ${formatTag}`,
-  ]);
-  console.log('');
+  console.log(mark('info', `Encontrada: ${color.bold(song.title)} ${color.dim(`[${song.duration}] · ${song.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
   await executeQueue([song.url], options, true);
 }
 
@@ -388,13 +366,20 @@ async function executeConfig(tokens) {
   if (!subcommand) {
     const cfg = await loadConfig();
     const configPath = getConfigPath();
-    card('⚙ Configuración de TrackCLI', [
+    const lines = [
       `  ${color.dim('Formato     ')} ${color.bold(cfg.format)}`,
       `  ${color.dim('Destino     ')} ${color.bold(cfg.output)}`,
       `  ${color.dim('Concurrencia')} ${color.bold(String(cfg.concurrency))}`,
       `  ${color.dim('Carátula    ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
-      `  ${color.dim('Archivo     ')} ${color.dim(configPath)}`,
-    ]);
+    ];
+    if (cfg.cookiesBrowser) {
+      lines.push(`  ${color.dim('Cookies nav ')} ${color.bold(cfg.cookiesBrowser)}`);
+    }
+    if (cfg.cookies) {
+      lines.push(`  ${color.dim('Cookies doc ')} ${color.dim(cfg.cookies)}`);
+    }
+    lines.push(`  ${color.dim('Archivo     ')} ${color.dim(configPath)}`);
+    card('⚙ Configuración de TrackCLI', lines);
     console.log(`\n${color.bold('Comandos disponibles:')}`);
     console.log(`  ${color.cyan('trackcli config set <clave> <valor>')}  ${color.dim('Ej: format m4a, output ~/Music, concurrency 4')}`);
     console.log(`  ${color.cyan('trackcli config reset')}               ${color.dim('Restaura los valores por defecto')}`);
@@ -409,11 +394,7 @@ async function executeConfig(tokens) {
 
   if (subcommand === 'reset') {
     await resetConfig();
-    card(color.green('✔ Configuración restablecida a valores por defecto'), [
-      `  ${color.dim('Formato     ')} mp3`,
-      `  ${color.dim('Destino     ')} ./trackcli-downloads`,
-      `  ${color.dim('Concurrencia')} 3`,
-    ]);
+    console.log(mark('success', 'Configuración restablecida a los valores por defecto.\n'));
     return;
   }
 
@@ -422,11 +403,7 @@ async function executeConfig(tokens) {
       throw new Error('Uso: trackcli config set <clave> <valor>. Ejemplo: trackcli config set format m4a');
     }
     const updated = await setConfigValue(key, value);
-    card(color.green('✔ Opción actualizada correctamente'), [
-      `  ${color.dim('Clave ')} ${color.bold(key)}`,
-      `  ${color.dim('Valor ')} ${color.bold(String(updated[key]))}`,
-      `  ${color.dim('Ruta  ')} ${color.dim(getConfigPath())}`,
-    ]);
+    console.log(mark('success', `Configuración actualizada: ${color.bold(key)} = ${color.bold(String(updated[key]))}\n`));
     return;
   }
 
@@ -436,7 +413,9 @@ async function executeConfig(tokens) {
 async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
   if (!requirementsAlreadyChecked) await ensureRequirements();
   if (!urls.length) throw new Error('No hay pistas para descargar.');
-  console.log(mark('info', `Destino: ${color.dim(options.output)}\n`));
+  if (urls.length > 1) {
+    console.log(mark('info', `Destino: ${color.dim(options.output)}\n`));
+  }
   const startTime = Date.now();
   const results = await runQueue(urls, options);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -445,10 +424,14 @@ async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
 
   console.log('');
   if (successful === results.length) {
-    card(color.green('✔ Descarga completada'), [
-      `  ${color.dim('Pistas  ')} ${color.green(`${successful} descargada${successful === 1 ? '' : 's'}`)} ${color.dim(`(${elapsed}s)`)}`,
-      `  ${color.dim('Destino ')} ${options.output}`,
-    ]);
+    if (urls.length === 1) {
+      console.log(mark('success', `${color.green('Descarga completada')} ${color.dim(`(${elapsed}s) →`)} ${color.dim(options.output)}\n`));
+    } else {
+      card(color.green('✔ Descarga completada'), [
+        `  ${color.dim('Pistas  ')} ${color.green(`${successful} descargada${successful === 1 ? '' : 's'}`)} ${color.dim(`(${elapsed}s)`)}`,
+        `  ${color.dim('Destino ')} ${options.output}`,
+      ]);
+    }
   } else {
     const failedLines = results
       .filter((item) => !item.ok)
