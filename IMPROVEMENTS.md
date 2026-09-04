@@ -75,16 +75,13 @@ Este plan está diseñado bajo una filosofía de **software honesto, transparent
 
 ---
 
-### Fase 4: Resiliencia de Red y Prevención de Bloqueos
-*Objetivo: Evitar que la herramienta falle ante verificaciones de bot o restricciones de YouTube.*
+### Fase 4: Resiliencia de Red y Robustez del Sistema
+*Objetivo: Garantizar transferencias limpias y estables con yt-dlp sin sobrecargar el alcance del proyecto.*
 
-- [x] **4.1 Soporte de Cookies contra verificaciones de bot en YouTube**
-  - **Problema:** YouTube frecuentemente arroja *"Sign in to confirm you're not a bot"* o HTTP 403 a conexiones concurrentes o IPs residenciales.
+- [x] **4.1 Clientes optimizados y heurística limpia**
   - **Acción:**
-    - Soportar flags `--cookies-from-browser <navegador>` y `--cookies <archivo>`.
-    - Permitir persistir el navegador preferido: `trackcli config set cookies-browser chrome`.
-    - Pasar el argumento a `yt-dlp` solo cuando esté configurado.
-  - **Archivos:** `src/args.js`, `src/config.js`, `src/cli.js`.
+    - Configuración de clientes web y móviles nativos en yt-dlp (`youtube:player_client=web,mweb`).
+    - Eliminación de dependencias de autenticación o perfiles de navegador externos para máxima privacidad y estabilidad entre plataformas.
 
 ---
 
@@ -97,7 +94,6 @@ Este plan está diseñado bajo una filosofía de **software honesto, transparent
 | **3.1 Subcarpetas para álbumes** | Alto | Medio | Alta |
 | **1.2 Respetar `userConfig.thumbnail`** | Medio | Muy bajo | Alta |
 | **2.2 Modo interactivo fluido** | Medio | Bajo | Media |
-| **4.1 Soporte de Cookies** | Alto | Medio | Media |
 | **1.3 Robustez en Windows** | Medio | Medio | Media |
 
 ---
@@ -107,3 +103,7 @@ Este plan está diseñado bajo una filosofía de **software honesto, transparent
 * **¿Por qué NO dar soporte a formato FLAC?**  
   *Decisión:* Rechazado conscientemente.  
   *Motivo:* YouTube entrega audio comprimido lossy (Opus a ~160kbps o AAC a ~128kbps). Ofrecer FLAC generaría una transcodificación que infla el archivo de 5 a 10 veces de tamaño sin aportar ni un bit extra de fidelidad acústica. TrackCLI es una herramienta honesta y evita el "placebo audiófilo".
+
+* **¿Por qué NO gestionar ni extraer cookies de navegadores?**  
+  *Decisión:* Eliminado y rechazado conscientemente.  
+  *Motivo:* Extraer perfiles de navegadores requiere acceso a Keychain/Llavero en macOS, genera bloqueos de base de datos si el navegador está abierto (Firefox) y falla ante App-Bound Encryption en Windows. Además, pedir acceso a datos de sesión de navegadores despierta recelos de privacidad legítimos. TrackCLI se mantiene ágil, minimalista y transparente; usuarios con necesidades muy particulares pueden configurar `yt-dlp` directamente en su archivo global nativo (`~/.config/yt-dlp/config`).

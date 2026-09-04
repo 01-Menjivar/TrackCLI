@@ -166,20 +166,6 @@ test('buildYtDlpArgs previene colisiones en pistas individuales usando [Artista]
   assert.ok(args[outIdx + 1].includes('The xx - Intro.%(ext)s'));
 });
 
-test('parseOptions y buildYtDlpArgs soportan cookies y cookies-from-browser', () => {
-  const parsedBrowser = parseOptions(['https://example.com', '-b', 'brave']);
-  assert.equal(parsedBrowser.options.cookiesBrowser, 'brave');
-  const argsBrowser = buildYtDlpArgs('https://example.com', parsedBrowser.options);
-  assert.ok(argsBrowser.includes('--cookies-from-browser'));
-  assert.ok(argsBrowser.includes('brave'));
-
-  const parsedFile = parseOptions(['https://example.com', '--cookies', '/path/cookies.txt']);
-  assert.equal(parsedFile.options.cookies, '/path/cookies.txt');
-  const argsFile = buildYtDlpArgs('https://example.com', parsedFile.options);
-  assert.ok(argsFile.includes('--cookies'));
-  assert.ok(argsFile.includes('/path/cookies.txt'));
-});
-
 test('parseOptions respeta thumbnail: false para retrocompatibilidad', () => {
   const parsed = parseOptions(['https://example.com'], { thumbnail: false });
   assert.equal(parsed.options.cover, false);

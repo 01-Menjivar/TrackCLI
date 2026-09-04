@@ -9,8 +9,6 @@ export const DEFAULT_CONFIG = {
   cover: true,
   overwrite: false,
   playlist: false,
-  cookies: null,
-  cookiesBrowser: null,
 };
 
 export function getConfigDir() {
@@ -52,7 +50,6 @@ export async function setConfigValue(key, value) {
     'cover', 'minimal', 'thumbnail',
     'overwrite', 'force',
     'playlist',
-    'cookies', 'cookies-browser', 'cookiesBrowser',
   ]);
   if (!validKeys.has(key)) {
     throw new Error(`Clave de configuración inválida: "${key}". Claves permitidas: ${[...validKeys].join(', ')}.`);
@@ -80,25 +77,6 @@ export async function setConfigValue(key, value) {
     config.overwrite = value === 'true' || value === '1' || value === true;
   } else if (key === 'playlist') {
     config.playlist = value === 'true' || value === '1' || value === true;
-  } else if (key === 'cookies-browser' || key === 'cookiesBrowser') {
-    const raw = String(value).toLowerCase().trim();
-    if (raw === 'none' || raw === 'null' || raw === '' || raw === 'false' || raw === '0') {
-      config.cookiesBrowser = null;
-    } else {
-      const validBrowsers = new Set(['brave', 'chrome', 'chromium', 'edge', 'firefox', 'opera', 'safari', 'vivaldi']);
-      const baseBrowser = raw.split(/[:+]/)[0];
-      if (!validBrowsers.has(baseBrowser)) {
-        throw new Error(`Navegador no válido: "${value}". Navegadores soportados: ${[...validBrowsers].join(', ')}.`);
-      }
-      config.cookiesBrowser = String(value).trim();
-    }
-  } else if (key === 'cookies') {
-    const raw = String(value).trim();
-    if (raw === 'none' || raw === 'null' || raw === '' || raw === 'false') {
-      config.cookies = null;
-    } else {
-      config.cookies = raw;
-    }
   } else if (key === 'output') {
     config.output = String(value);
   }

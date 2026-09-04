@@ -27,8 +27,6 @@ ${color.bold('Opciones')}
   -c, --concurrency <1-6>                 Descargas simultáneas en cola/lotes (por defecto: 3)
   -m, --no-cover                          Descarga rápida sin incrustar carátula
   -f, --overwrite                         Sobrescribir archivos si ya existen en destino
-  -b, --cookies-from-browser <navegador>  Extrae cookies del navegador (chrome, firefox, brave, etc.)
-  --cookies <archivo>                     Ruta a un archivo cookies.txt de YouTube
 
 ${color.bold('Configuración Global')}
   trackcli config                         Muestra las preferencias activas
@@ -38,7 +36,6 @@ ${color.bold('Configuración Global')}
   trackcli config set cover false         Desactiva carátulas e imágenes por defecto
   trackcli config set overwrite true      Sobrescribe archivos existentes por defecto
   trackcli config set playlist true       Descarga playlists completas por defecto
-  trackcli config set cookies-browser chrome  Guarda el navegador para cookies
   trackcli config reset                   Restaura los valores por defecto
 
 ${color.bold('Ejemplos')}
@@ -104,12 +101,6 @@ async function interactiveConfig(activeConfig) {
       `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
       `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
     ];
-    if (cfg.cookiesBrowser) {
-      lines.push(`  ${color.dim('Cookies nav     ')} ${color.bold(cfg.cookiesBrowser)}`);
-    }
-    if (cfg.cookies) {
-      lines.push(`  ${color.dim('Cookies doc     ')} ${color.dim(cfg.cookies)}`);
-    }
     lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
     card('⚙ Configuración actual', lines);
 
@@ -120,8 +111,6 @@ async function interactiveConfig(activeConfig) {
       { id: 'cover', label: `Carátula e imágenes ID3 (actual: ${cfg.cover !== false ? 'habilitada' : 'deshabilitada'})` },
       { id: 'overwrite', label: `Sobrescritura de archivos (actual: ${cfg.overwrite ? 'habilitada' : 'deshabilitada'})` },
       { id: 'playlist', label: `Descarga de playlists (actual: ${cfg.playlist ? 'completa' : 'solo pista individual'})` },
-      { id: 'cookiesBrowser', label: `Cookies desde navegador (actual: ${cfg.cookiesBrowser || 'ninguno'})` },
-      { id: 'cookies', label: `Archivo de cookies .txt (actual: ${cfg.cookies || 'ninguno'})` },
       { id: 'reset', label: 'Restablecer valores por defecto' },
       { id: 'back', label: '← Volver al menú principal' },
     ];
@@ -215,36 +204,6 @@ async function interactiveConfig(activeConfig) {
       if (choice) {
         await setConfigValue('playlist', choice.id);
         console.log(mark('success', `Comportamiento de playlist: ${choice.id === 'true' ? 'descargar completa' : 'solo pista individual'}\n`));
-      }
-    } else if (action.id === 'cookiesBrowser') {
-      const BROWSER_OPTIONS = [
-        { id: 'none', label: '(Ninguno) Desactivar cookies de navegador' },
-        { id: 'chrome', label: 'Google Chrome' },
-        { id: 'brave', label: 'Brave Browser' },
-        { id: 'firefox', label: 'Mozilla Firefox' },
-        { id: 'safari', label: 'Apple Safari' },
-        { id: 'edge', label: 'Microsoft Edge' },
-        { id: 'opera', label: 'Opera' },
-        { id: 'vivaldi', label: 'Vivaldi' },
-      ];
-      const choice = await selectItemInteractive(
-        BROWSER_OPTIONS,
-        (item) => item.label,
-        ask,
-        { title: color.bold('Navegador para extracción de cookies:'), clearOnSelect: true }
-      );
-      if (choice) {
-        await setConfigValue('cookies-browser', choice.id);
-        console.log(mark('success', choice.id === 'none' ? 'Extracción de cookies desactivada.\n' : `Navegador configurado: ${color.bold(choice.id)}\n`));
-      }
-    } else if (action.id === 'cookies') {
-      const currentVal = cfg.cookies || '';
-      console.log(color.dim('Indica la ruta a un archivo cookies.txt de YouTube (escribe "none" para quitarlo).'));
-      const newFile = await ask('Ruta del archivo cookies.txt', currentVal);
-      if (newFile === null) continue;
-      if (newFile !== undefined && newFile !== '') {
-        await setConfigValue('cookies', newFile);
-        console.log(mark('success', newFile === 'none' ? 'Archivo de cookies desvinculado.\n' : `Archivo de cookies guardado: ${color.bold(newFile)}\n`));
       }
     } else if (action.id === 'reset') {
       await resetConfig();
@@ -574,12 +533,6 @@ async function executeConfig(tokens) {
       `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
       `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
     ];
-    if (cfg.cookiesBrowser) {
-      lines.push(`  ${color.dim('Cookies nav     ')} ${color.bold(cfg.cookiesBrowser)}`);
-    }
-    if (cfg.cookies) {
-      lines.push(`  ${color.dim('Cookies doc     ')} ${color.dim(cfg.cookies)}`);
-    }
     lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
     card('⚙ Configuración de TrackCLI', lines);
     console.log(`\n${color.bold('Comandos disponibles:')}`);
@@ -590,8 +543,6 @@ async function executeConfig(tokens) {
     console.log(`    ${color.dim('cover           ')} true | false`);
     console.log(`    ${color.dim('overwrite       ')} true | false`);
     console.log(`    ${color.dim('playlist        ')} true | false`);
-    console.log(`    ${color.dim('cookies-browser ')} chrome | brave | firefox | safari | edge | none`);
-    console.log(`    ${color.dim('cookies         ')} /ruta/a/cookies.txt | none`);
     console.log(`  ${color.cyan('trackcli config reset')}               ${color.dim('Restaura los valores por defecto')}`);
     console.log(`  ${color.cyan('trackcli config path')}                ${color.dim('Muestra la ruta del archivo config.json')}\n`);
     return;

@@ -25,7 +25,6 @@ TrackCLI automatiza la localización y descarga de audio a partir de búsquedas 
   - [Descarga por enlace (Pistas y Álbumes)](#descarga-por-enlace-pistas-y-álbumes)
   - [Descarga por lotes (archivo .txt)](#descarga-por-lotes-archivo-txt)
   - [Configuración persistente](#configuración-persistente)
-  - [Uso de Cookies (Prevención de bloqueos)](#uso-de-cookies-prevención-de-bloqueos)
 - [Opciones de línea de comandos](#opciones-de-línea-de-comandos)
 - [Diagnóstico del sistema](#diagnóstico-del-sistema)
 - [Consideraciones legales](#consideraciones-legales)
@@ -219,51 +218,9 @@ trackcli config set overwrite true
 # Descargar playlists completas por defecto al pegar enlaces con &list= (true | false)
 trackcli config set playlist true
 
-# Guardar navegador preferido para extracción de cookies (o "none" para quitar)
-trackcli config set cookies-browser chrome
-
-# Guardar archivo cookies.txt persistente (o "none" para quitar)
-trackcli config set cookies ~/.cookies/youtube.txt
-
 # Restablecer valores predeterminados
 trackcli config reset
 ```
-
-### Uso de Cookies (Prevención de bloqueos)
-
-Al realizar múltiples descargas consecutivas, procesar listas extensas o descargar desde ciertas redes, YouTube puede activar verificaciones automáticas y bloquear la conexión mostrando errores como:
-- *"Sign in to confirm you're not a bot"* (Inicia sesión para confirmar que no eres un bot).
-- Respuestas HTTP `403 Forbidden` al solicitar el flujo de audio.
-- Restricciones en canciones marcadas con límite de edad (*Age-restricted content*).
-
-La feature de **cookies** permite que el motor de descarga (`yt-dlp`) se autentique ante YouTube con las credenciales de una sesión real, garantizando transferencias estables sin bloqueos ni interrupciones.
-
-#### 1. Extracción directa del navegador (Recomendado)
-TrackCLI puede extraer de forma automática y transparente las cookies de sesión del navegador que utilices habitualmente, sin necesidad de exportar ningún archivo:
-
-```bash
-# Vía flag rápida (-b o --cookies-from-browser)
-trackcli "https://www.youtube.com/watch?v=..." -b chrome
-trackcli search "Artista - Canción" --cookies-from-browser brave
-
-# O guardando tu navegador preferido para no tener que indicarlo cada vez
-trackcli config set cookies-browser chrome
-```
-
-*Navegadores compatibles:* `chrome`, `firefox`, `brave`, `edge`, `safari`, `opera`, `vivaldi`, `chromium`.
-
-#### 2. Mediante archivo de cookies (`cookies.txt`)
-Si prefieres no dar acceso a los perfiles de tu navegador o si ejecutas TrackCLI en servidores o entornos sin interfaz gráfica (headless), puedes suministrar un archivo de cookies exportado en formato Netscape (`cookies.txt`):
-
-```bash
-# Uso puntual mediante flag
-trackcli "https://www.youtube.com/watch?v=..." --cookies ~/Downloads/youtube_cookies.txt
-
-# O guardando la ruta permanente en la configuración global
-trackcli config set cookies ~/Downloads/youtube_cookies.txt
-```
-
-*(Para generar este archivo puedes usar extensiones reconocidas de navegador como "Get cookies.txt LOCALLY").*
 
 ---
 
@@ -277,8 +234,6 @@ trackcli config set cookies ~/Downloads/youtube_cookies.txt
 | `--no-cover` | `-m` | Descarga rápida de audio sin incrustar portada. | Booleano | `false` |
 | `--overwrite` | `-f` | Sobrescribe archivos si ya existen en el destino. | Booleano | `false` |
 | `--playlist` | | Fuerza la descarga de playlist completa en URLs con `&list=`. | Booleano | `false` |
-| `--cookies-from-browser` | `-b` | Extrae cookies del navegador para evitar verificaciones de bot. | `chrome`, `firefox`, `brave`, `edge`, etc. | `null` |
-| `--cookies` | | Ruta a archivo de cookies en formato Netscape (`cookies.txt`). | `<ruta_archivo>` | `null` |
 
 ---
 

@@ -32,8 +32,6 @@ export function parseOptions(tokens, userConfig = {}) {
     output: userConfig.output ?? path.join(process.cwd(), 'trackcli-downloads'),
     cover: coverDefault,
     concurrency: userConfig.concurrency ?? 3,
-    cookies: userConfig.cookies || null,
-    cookiesBrowser: userConfig.cookiesBrowser || userConfig['cookies-browser'] || null,
     overwrite: userConfig.overwrite === true || userConfig.force === true,
     playlist: userConfig.playlist === true,
   };
@@ -68,12 +66,6 @@ export function parseOptions(tokens, userConfig = {}) {
       const value = token.startsWith('-o=') ? token.slice(3) : tokens[++index];
       if (!value || value.startsWith('-')) throw new Error('Falta un valor para -o / --output.');
       options.output = value;
-      continue;
-    }
-    if (token === '-b' || token.startsWith('-b=')) {
-      const value = token.startsWith('-b=') ? token.slice(3) : tokens[++index];
-      if (!value || value.startsWith('-')) throw new Error('Falta el nombre del navegador para -b / --cookies-from-browser.');
-      options.cookiesBrowser = value.trim();
       continue;
     }
     if (!token.startsWith('--')) {
@@ -116,18 +108,6 @@ export function parseOptions(tokens, userConfig = {}) {
       const value = attached ?? tokens[++index];
       if (!value || value.startsWith('--')) throw new Error(`Falta un valor para --${flag}.`);
       options[flag] = value;
-      continue;
-    }
-    if (flag === 'cookies-from-browser' || flag === 'browser') {
-      const value = attached ?? tokens[++index];
-      if (!value || value.startsWith('--')) throw new Error('Falta el nombre del navegador para --cookies-from-browser.');
-      options.cookiesBrowser = value.trim();
-      continue;
-    }
-    if (flag === 'cookies') {
-      const value = attached ?? tokens[++index];
-      if (!value || value.startsWith('--')) throw new Error('Falta la ruta del archivo para --cookies.');
-      options.cookies = value.trim();
       continue;
     }
     throw new Error(`No conozco la opción --${flag}. Ejecuta trackcli help.`);
@@ -195,11 +175,6 @@ export function buildYtDlpArgs(url, options = {}) {
     '--parse-metadata', '%(title)s:%(artist)s - %(track)s',
     '--no-continue',
   ];
-  if (options.cookies) {
-    args.push('--cookies', options.cookies);
-  } else if (options.cookiesBrowser) {
-    args.push('--cookies-from-browser', options.cookiesBrowser);
-  }
   if (options.overwrite) {
     args.push('--force-overwrites');
   } else {

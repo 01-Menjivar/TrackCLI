@@ -30,8 +30,6 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     await setConfigValue('concurrency', '6');
     await setConfigValue('cover', 'false');
     await setConfigValue('output', '/custom/music');
-    await setConfigValue('cookies-browser', 'firefox');
-    await setConfigValue('cookies', '/custom/cookies.txt');
     await setConfigValue('thumbnail', 'true');
     await setConfigValue('overwrite', 'true');
     await setConfigValue('playlist', 'true');
@@ -41,24 +39,14 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     assert.equal(config.concurrency, 6);
     assert.equal(config.cover, true);
     assert.equal(config.output, '/custom/music');
-    assert.equal(config.cookiesBrowser, 'firefox');
-    assert.equal(config.cookies, '/custom/cookies.txt');
     assert.equal(config.overwrite, true);
     assert.equal(config.playlist, true);
-
-    // Desactivar cookies con "none"
-    await setConfigValue('cookies-browser', 'none');
-    await setConfigValue('cookies', 'none');
-    const cleared = await loadConfig();
-    assert.equal(cleared.cookiesBrowser, null);
-    assert.equal(cleared.cookies, null);
 
     // Valida errores en claves inválidas o valores incorrectos
     await assert.rejects(() => setConfigValue('invalidKey', 'foo'), /Clave de configuración inválida/);
     await assert.rejects(() => setConfigValue('format', 'mp4'), /Formato no válido/);
     await assert.rejects(() => setConfigValue('concurrency', '0'), /concurrencia debe ser un número/);
     await assert.rejects(() => setConfigValue('concurrency', '7'), /concurrencia debe ser un número/);
-    await assert.rejects(() => setConfigValue('cookies-browser', 'invalidbrowser'), /Navegador no válido/);
 
     // Reset restaura valores iniciales
     const reset = await resetConfig();
