@@ -34,6 +34,10 @@ ${color.bold('Configuración Global')}
   trackcli config                         Muestra las preferencias activas
   trackcli config set format opus         Establece el formato por defecto
   trackcli config set output ~/Music      Establece la carpeta de destino por defecto
+  trackcli config set concurrency 4       Establece descargas simultáneas por defecto
+  trackcli config set cover false         Desactiva carátulas e imágenes por defecto
+  trackcli config set overwrite true      Sobrescribe archivos existentes por defecto
+  trackcli config set playlist true       Descarga playlists completas por defecto
   trackcli config set cookies-browser chrome  Guarda el navegador para cookies
   trackcli config reset                   Restaura los valores por defecto
 
@@ -63,24 +67,31 @@ async function interactiveConfig(activeConfig) {
     const cfg = await loadConfig();
     const configPath = getConfigPath();
     const lines = [
-      `  ${color.dim('Formato     ')} ${color.bold(cfg.format)}`,
-      `  ${color.dim('Destino     ')} ${color.bold(cfg.output)}`,
-      `  ${color.dim('Concurrencia')} ${color.bold(String(cfg.concurrency))}`,
-      `  ${color.dim('Carátula    ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Formato         ')} ${color.bold(cfg.format)}`,
+      `  ${color.dim('Destino         ')} ${color.bold(cfg.output)}`,
+      `  ${color.dim('Concurrencia    ')} ${color.bold(String(cfg.concurrency))}`,
+      `  ${color.dim('Carátula        ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
     ];
     if (cfg.cookiesBrowser) {
-      lines.push(`  ${color.dim('Cookies nav ')} ${color.bold(cfg.cookiesBrowser)}`);
+      lines.push(`  ${color.dim('Cookies nav     ')} ${color.bold(cfg.cookiesBrowser)}`);
     }
     if (cfg.cookies) {
-      lines.push(`  ${color.dim('Cookies doc ')} ${color.dim(cfg.cookies)}`);
+      lines.push(`  ${color.dim('Cookies doc     ')} ${color.dim(cfg.cookies)}`);
     }
-    lines.push(`  ${color.dim('Archivo     ')} ${color.dim(configPath)}`);
+    lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
     card('⚙ Configuración actual', lines);
 
     const CONFIG_ACTIONS = [
-      { id: 'format', label: `Cambiar formato de audio (actual: ${cfg.format})` },
-      { id: 'output', label: `Cambiar carpeta de destino (actual: ${cfg.output})` },
-      { id: 'concurrency', label: `Cambiar descargas simultáneas (actual: ${cfg.concurrency})` },
+      { id: 'format', label: `Formato de audio (actual: ${cfg.format})` },
+      { id: 'output', label: `Carpeta de destino (actual: ${cfg.output})` },
+      { id: 'concurrency', label: `Concurrencia de descargas (actual: ${cfg.concurrency})` },
+      { id: 'cover', label: `Carátula e imágenes ID3 (actual: ${cfg.cover !== false ? 'habilitada' : 'deshabilitada'})` },
+      { id: 'overwrite', label: `Sobrescritura de archivos (actual: ${cfg.overwrite ? 'habilitada' : 'deshabilitada'})` },
+      { id: 'playlist', label: `Descarga de playlists (actual: ${cfg.playlist ? 'completa' : 'solo pista individual'})` },
+      { id: 'cookiesBrowser', label: `Cookies desde navegador (actual: ${cfg.cookiesBrowser || 'ninguno'})` },
+      { id: 'cookies', label: `Archivo de cookies .txt (actual: ${cfg.cookies || 'ninguno'})` },
       { id: 'reset', label: 'Restablecer valores por defecto' },
       { id: 'back', label: '← Volver al menú principal' },
     ];
@@ -89,7 +100,7 @@ async function interactiveConfig(activeConfig) {
       CONFIG_ACTIONS,
       (item) => item.label,
       ask,
-      { title: color.bold('Opciones de configuración:'), clearOnSelect: true }
+      { title: color.bold('Selecciona una opción para configurar:'), clearOnSelect: true }
     );
 
     if (!action || action.id === 'back') {
@@ -119,7 +130,7 @@ async function interactiveConfig(activeConfig) {
         console.log(mark('success', `Carpeta actualizada a: ${color.bold(newOutput)}\n`));
       }
     } else if (action.id === 'concurrency') {
-      const newConcurrency = await ask('Concurrencia (1 a 6)', String(cfg.concurrency));
+      const newConcurrency = await ask('Concurrencia (1 a 6 descargas simultáneas)', String(cfg.concurrency));
       if (newConcurrency) {
         try {
           await setConfigValue('concurrency', newConcurrency);
@@ -127,6 +138,80 @@ async function interactiveConfig(activeConfig) {
         } catch (err) {
           console.log(mark('error', err.message + '\n'));
         }
+      }
+    } else if (action.id === 'cover') {
+      const COVER_OPTIONS = [
+        { id: 'true', label: 'Habilitada · Incrustar portada y metadatos ID3 completos (por defecto)' },
+        { id: 'false', label: 'Deshabilitada · Descarga más rápida y ligera sin carátula (-m / --no-cover)' },
+      ];
+      const choice = await selectItemInteractive(
+        COVER_OPTIONS,
+        (item) => item.label,
+        ask,
+        { title: color.bold('Carátula en archivos de audio:'), clearOnSelect: true }
+      );
+      if (choice) {
+        await setConfigValue('cover', choice.id);
+        console.log(mark('success', `Carátula ${choice.id === 'true' ? 'habilitada' : 'deshabilitada'}\n`));
+      }
+    } else if (action.id === 'overwrite') {
+      const OVERWRITE_OPTIONS = [
+        { id: 'false', label: 'Deshabilitada · Omitir descarga si el archivo ya existe (seguro, por defecto)' },
+        { id: 'true', label: 'Habilitada · Sobrescribir siempre archivos existentes (-f / --overwrite)' },
+      ];
+      const choice = await selectItemInteractive(
+        OVERWRITE_OPTIONS,
+        (item) => item.label,
+        ask,
+        { title: color.bold('Sobrescritura de archivos:'), clearOnSelect: true }
+      );
+      if (choice) {
+        await setConfigValue('overwrite', choice.id);
+        console.log(mark('success', `Sobrescritura ${choice.id === 'true' ? 'habilitada' : 'deshabilitada'}\n`));
+      }
+    } else if (action.id === 'playlist') {
+      const PLAYLIST_OPTIONS = [
+        { id: 'false', label: 'Solo pista individual · Ignorar list= en videos individuales (por defecto)' },
+        { id: 'true', label: 'Descargar playlist completa · Descargar todos los videos de la lista (--playlist)' },
+      ];
+      const choice = await selectItemInteractive(
+        PLAYLIST_OPTIONS,
+        (item) => item.label,
+        ask,
+        { title: color.bold('Comportamiento con playlists:'), clearOnSelect: true }
+      );
+      if (choice) {
+        await setConfigValue('playlist', choice.id);
+        console.log(mark('success', `Comportamiento de playlist: ${choice.id === 'true' ? 'descargar completa' : 'solo pista individual'}\n`));
+      }
+    } else if (action.id === 'cookiesBrowser') {
+      const BROWSER_OPTIONS = [
+        { id: 'none', label: '(Ninguno) Desactivar cookies de navegador' },
+        { id: 'chrome', label: 'Google Chrome' },
+        { id: 'brave', label: 'Brave Browser' },
+        { id: 'firefox', label: 'Mozilla Firefox' },
+        { id: 'safari', label: 'Apple Safari' },
+        { id: 'edge', label: 'Microsoft Edge' },
+        { id: 'opera', label: 'Opera' },
+        { id: 'vivaldi', label: 'Vivaldi' },
+      ];
+      const choice = await selectItemInteractive(
+        BROWSER_OPTIONS,
+        (item) => item.label,
+        ask,
+        { title: color.bold('Navegador para extracción de cookies:'), clearOnSelect: true }
+      );
+      if (choice) {
+        await setConfigValue('cookies-browser', choice.id);
+        console.log(mark('success', choice.id === 'none' ? 'Extracción de cookies desactivada.\n' : `Navegador configurado: ${color.bold(choice.id)}\n`));
+      }
+    } else if (action.id === 'cookies') {
+      const currentVal = cfg.cookies || '';
+      console.log(color.dim('Indica la ruta a un archivo cookies.txt de YouTube (escribe "none" para quitarlo).'));
+      const newFile = await ask('Ruta del archivo cookies.txt', currentVal);
+      if (newFile !== undefined && newFile !== '') {
+        await setConfigValue('cookies', newFile);
+        console.log(mark('success', newFile === 'none' ? 'Archivo de cookies desvinculado.\n' : `Archivo de cookies guardado: ${color.bold(newFile)}\n`));
       }
     } else if (action.id === 'reset') {
       await resetConfig();
@@ -444,21 +529,31 @@ async function executeConfig(tokens) {
     const cfg = await loadConfig();
     const configPath = getConfigPath();
     const lines = [
-      `  ${color.dim('Formato     ')} ${color.bold(cfg.format)}`,
-      `  ${color.dim('Destino     ')} ${color.bold(cfg.output)}`,
-      `  ${color.dim('Concurrencia')} ${color.bold(String(cfg.concurrency))}`,
-      `  ${color.dim('Carátula    ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Formato         ')} ${color.bold(cfg.format)}`,
+      `  ${color.dim('Destino         ')} ${color.bold(cfg.output)}`,
+      `  ${color.dim('Concurrencia    ')} ${color.bold(String(cfg.concurrency))}`,
+      `  ${color.dim('Carátula        ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
+      `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
     ];
     if (cfg.cookiesBrowser) {
-      lines.push(`  ${color.dim('Cookies nav ')} ${color.bold(cfg.cookiesBrowser)}`);
+      lines.push(`  ${color.dim('Cookies nav     ')} ${color.bold(cfg.cookiesBrowser)}`);
     }
     if (cfg.cookies) {
-      lines.push(`  ${color.dim('Cookies doc ')} ${color.dim(cfg.cookies)}`);
+      lines.push(`  ${color.dim('Cookies doc     ')} ${color.dim(cfg.cookies)}`);
     }
-    lines.push(`  ${color.dim('Archivo     ')} ${color.dim(configPath)}`);
+    lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
     card('⚙ Configuración de TrackCLI', lines);
     console.log(`\n${color.bold('Comandos disponibles:')}`);
-    console.log(`  ${color.cyan('trackcli config set <clave> <valor>')}  ${color.dim('Ej: format m4a, output ~/Music, concurrency 4')}`);
+    console.log(`  ${color.cyan('trackcli config set <clave> <valor>')}`);
+    console.log(`    ${color.dim('format          ')} mp3 | m4a | opus`);
+    console.log(`    ${color.dim('output          ')} ~/Music`);
+    console.log(`    ${color.dim('concurrency     ')} 1 a 6`);
+    console.log(`    ${color.dim('cover           ')} true | false`);
+    console.log(`    ${color.dim('overwrite       ')} true | false`);
+    console.log(`    ${color.dim('playlist        ')} true | false`);
+    console.log(`    ${color.dim('cookies-browser ')} chrome | brave | firefox | safari | edge | none`);
+    console.log(`    ${color.dim('cookies         ')} /ruta/a/cookies.txt | none`);
     console.log(`  ${color.cyan('trackcli config reset')}               ${color.dim('Restaura los valores por defecto')}`);
     console.log(`  ${color.cyan('trackcli config path')}                ${color.dim('Muestra la ruta del archivo config.json')}\n`);
     return;

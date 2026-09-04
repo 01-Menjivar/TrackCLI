@@ -34,8 +34,8 @@ export function parseOptions(tokens, userConfig = {}) {
     concurrency: userConfig.concurrency ?? 3,
     cookies: userConfig.cookies || null,
     cookiesBrowser: userConfig.cookiesBrowser || userConfig['cookies-browser'] || null,
-    overwrite: false,
-    playlist: false,
+    overwrite: userConfig.overwrite === true || userConfig.force === true,
+    playlist: userConfig.playlist === true,
   };
   const positional = [];
 
@@ -45,8 +45,16 @@ export function parseOptions(tokens, userConfig = {}) {
       options.cover = false;
       continue;
     }
+    if (token === '--cover' || token === '--thumbnail') {
+      options.cover = true;
+      continue;
+    }
     if (token === '-f' || token === '--force' || token === '--overwrite') {
       options.overwrite = true;
+      continue;
+    }
+    if (token === '--no-overwrite' || token === '--no-force') {
+      options.overwrite = false;
       continue;
     }
     if (token === '-c' || token.startsWith('-c=')) {
@@ -75,6 +83,26 @@ export function parseOptions(tokens, userConfig = {}) {
     const [flag, attached] = token.slice(2).split('=', 2);
     if (flag === 'playlist') {
       options.playlist = true;
+      continue;
+    }
+    if (flag === 'no-playlist') {
+      options.playlist = false;
+      continue;
+    }
+    if (flag === 'cover' || flag === 'thumbnail') {
+      options.cover = true;
+      continue;
+    }
+    if (flag === 'no-cover' || flag === 'no-thumbnail' || flag === 'minimal') {
+      options.cover = false;
+      continue;
+    }
+    if (flag === 'overwrite' || flag === 'force') {
+      options.overwrite = true;
+      continue;
+    }
+    if (flag === 'no-overwrite' || flag === 'no-force') {
+      options.overwrite = false;
       continue;
     }
     if (flag === 'concurrency') {

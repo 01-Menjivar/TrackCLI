@@ -33,6 +33,8 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     await setConfigValue('cookies-browser', 'firefox');
     await setConfigValue('cookies', '/custom/cookies.txt');
     await setConfigValue('thumbnail', 'true');
+    await setConfigValue('overwrite', 'true');
+    await setConfigValue('playlist', 'true');
 
     const config = await loadConfig();
     assert.equal(config.format, 'opus');
@@ -41,6 +43,15 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     assert.equal(config.output, '/custom/music');
     assert.equal(config.cookiesBrowser, 'firefox');
     assert.equal(config.cookies, '/custom/cookies.txt');
+    assert.equal(config.overwrite, true);
+    assert.equal(config.playlist, true);
+
+    // Desactivar cookies con "none"
+    await setConfigValue('cookies-browser', 'none');
+    await setConfigValue('cookies', 'none');
+    const cleared = await loadConfig();
+    assert.equal(cleared.cookiesBrowser, null);
+    assert.equal(cleared.cookies, null);
 
     // Valida errores en claves inválidas o valores incorrectos
     await assert.rejects(() => setConfigValue('invalidKey', 'foo'), /Clave de configuración inválida/);
@@ -64,6 +75,8 @@ test('parseOptions adopta valores por defecto de la configuración global y perm
     output: '/var/music',
     concurrency: 5,
     cover: false,
+    overwrite: true,
+    playlist: true,
   };
 
   // Sin flags: adopta la configuración del usuario
@@ -73,10 +86,23 @@ test('parseOptions adopta valores por defecto de la configuración global y perm
   assert.equal(optsDefault.concurrency, 5);
   assert.equal(optsDefault.cover, false);
   assert.equal(optsDefault.thumbnail, false);
+  assert.equal(optsDefault.overwrite, true);
+  assert.equal(optsDefault.playlist, true);
 
-  // Con flags: los argumentos de línea de comandos tienen precedencia (-o, -c, --format)
-  const { options: optsOverride } = parseOptions(['https://example.com/audio', '--format', 'opus', '-c', '6', '-o', './local'], userConfig);
+  // Con flags: los argumentos de línea de comandos tienen precedencia
+  const { options: optsOverride } = parseOptions([
+    'https://example.com/audio',
+    '--format', 'opus',
+    '-c', '6',
+    '-o', './local',
+    '--cover',
+    '--no-overwrite',
+    '--no-playlist',
+  ], userConfig);
   assert.equal(optsOverride.format, 'opus');
   assert.equal(optsOverride.concurrency, 6);
   assert.equal(optsOverride.output, './local');
+  assert.equal(optsOverride.cover, true);
+  assert.equal(optsOverride.overwrite, false);
+  assert.equal(optsOverride.playlist, false);
 });

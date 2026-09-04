@@ -7,6 +7,8 @@ export const DEFAULT_CONFIG = {
   output: join(process.cwd(), 'trackcli-downloads'),
   concurrency: 3,
   cover: true,
+  overwrite: false,
+  playlist: false,
   cookies: null,
   cookiesBrowser: null,
 };
@@ -45,7 +47,13 @@ export async function saveConfig(config) {
 }
 
 export async function setConfigValue(key, value) {
-  const validKeys = new Set(['format', 'output', 'concurrency', 'cover', 'minimal', 'thumbnail', 'cookies', 'cookies-browser', 'cookiesBrowser']);
+  const validKeys = new Set([
+    'format', 'output', 'concurrency',
+    'cover', 'minimal', 'thumbnail',
+    'overwrite', 'force',
+    'playlist',
+    'cookies', 'cookies-browser', 'cookiesBrowser',
+  ]);
   if (!validKeys.has(key)) {
     throw new Error(`Clave de configuración inválida: "${key}". Claves permitidas: ${[...validKeys].join(', ')}.`);
   }
@@ -68,16 +76,29 @@ export async function setConfigValue(key, value) {
     config.cover = value === 'true' || value === '1' || value === true;
   } else if (key === 'minimal') {
     config.cover = !(value === 'true' || value === '1' || value === true);
+  } else if (key === 'overwrite' || key === 'force') {
+    config.overwrite = value === 'true' || value === '1' || value === true;
+  } else if (key === 'playlist') {
+    config.playlist = value === 'true' || value === '1' || value === true;
   } else if (key === 'cookies-browser' || key === 'cookiesBrowser') {
-    const validBrowsers = new Set(['brave', 'chrome', 'chromium', 'edge', 'firefox', 'opera', 'safari', 'vivaldi']);
-    const lower = String(value).toLowerCase().trim();
-    const baseBrowser = lower.split(/[:+]/)[0];
-    if (!validBrowsers.has(baseBrowser)) {
-      throw new Error(`Navegador no válido: "${value}". Navegadores soportados: ${[...validBrowsers].join(', ')}.`);
+    const raw = String(value).toLowerCase().trim();
+    if (raw === 'none' || raw === 'null' || raw === '' || raw === 'false' || raw === '0') {
+      config.cookiesBrowser = null;
+    } else {
+      const validBrowsers = new Set(['brave', 'chrome', 'chromium', 'edge', 'firefox', 'opera', 'safari', 'vivaldi']);
+      const baseBrowser = raw.split(/[:+]/)[0];
+      if (!validBrowsers.has(baseBrowser)) {
+        throw new Error(`Navegador no válido: "${value}". Navegadores soportados: ${[...validBrowsers].join(', ')}.`);
+      }
+      config.cookiesBrowser = String(value).trim();
     }
-    config.cookiesBrowser = String(value).trim();
   } else if (key === 'cookies') {
-    config.cookies = String(value).trim();
+    const raw = String(value).trim();
+    if (raw === 'none' || raw === 'null' || raw === '' || raw === 'false') {
+      config.cookies = null;
+    } else {
+      config.cookies = raw;
+    }
   } else if (key === 'output') {
     config.output = String(value);
   }

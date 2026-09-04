@@ -195,19 +195,35 @@ Artista Dos - Canción Dos
 ```
 
 ### Configuración persistente
-Define tus preferencias globales en `config.json` para no tener que repetir opciones en cada comando:
+Define tus preferencias globales en `config.json` para que se apliquen automáticamente sin tener que repetir flags en cada comando (también configurable interactivamente desde `trackcli` → `Configuración`):
+
 ```bash
 # Ver configuración activa
 trackcli config
 
-# Establecer carpeta de destino predeterminada
-trackcli config set output ~/Music
-
-# Establecer formato preferido (opus, m4a o mp3)
+# Formato de audio preferido (mp3, m4a u opus)
 trackcli config set format opus
 
-# Guardar navegador preferido para extracción de cookies
+# Carpeta de destino predeterminada
+trackcli config set output ~/Music
+
+# Concurrencia de descargas en lotes o listas (1 a 6, recomendado: 3)
+trackcli config set concurrency 4
+
+# Habilitar o deshabilitar carátula e imágenes ID3 por defecto (true | false)
+trackcli config set cover false
+
+# Sobrescribir archivos existentes por defecto (true | false)
+trackcli config set overwrite true
+
+# Descargar playlists completas por defecto al pegar enlaces con &list= (true | false)
+trackcli config set playlist true
+
+# Guardar navegador preferido para extracción de cookies (o "none" para quitar)
 trackcli config set cookies-browser chrome
+
+# Guardar archivo cookies.txt persistente (o "none" para quitar)
+trackcli config set cookies ~/.cookies/youtube.txt
 
 # Restablecer valores predeterminados
 trackcli config reset
@@ -260,6 +276,7 @@ trackcli config set cookies ~/Downloads/youtube_cookies.txt
 | `--concurrency` | `-c` | Número de descargas simultáneas en colas y álbumes. | `1` a `6` (recomendado: `3`) | `3` |
 | `--no-cover` | `-m` | Descarga rápida de audio sin incrustar portada. | Booleano | `false` |
 | `--overwrite` | `-f` | Sobrescribe archivos si ya existen en el destino. | Booleano | `false` |
+| `--playlist` | | Fuerza la descarga de playlist completa en URLs con `&list=`. | Booleano | `false` |
 | `--cookies-from-browser` | `-b` | Extrae cookies del navegador para evitar verificaciones de bot. | `chrome`, `firefox`, `brave`, `edge`, etc. | `null` |
 | `--cookies` | | Ruta a archivo de cookies en formato Netscape (`cookies.txt`). | `<ruta_archivo>` | `null` |
 
