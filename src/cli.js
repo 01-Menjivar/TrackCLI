@@ -66,8 +66,7 @@ async function guidedMode(userConfig = {}) {
   header();
 
   card('Modo interactivo', [
-    color.dim('Escribe el nombre de una canción, pega un enlace o indica un archivo .txt.'),
-    `${color.dim('Formato recomendado:')} ${color.bold('Artista - Canción')}`,
+    color.dim('Escribe una canción o enlace. Escribe /help para ver opciones.'),
   ]);
   console.log('');
 
@@ -76,10 +75,29 @@ async function guidedMode(userConfig = {}) {
   let askPreferences = true;
 
   while (true) {
-    const source = await ask('Búsqueda (Artista - Canción), enlace o .txt');
-    if (!source) {
+    const source = await ask('Canción o enlace');
+    if (!source || source === '/exit' || source === 'exit' || source === ':q') {
       console.log(color.dim('\n✦ Sesión finalizada.\n'));
       break;
+    }
+
+    if (source === '/help') {
+      card('Comandos', [
+        `  ${color.cyan('/config')}  ${color.dim('Cambiar formato y carpeta de destino')}`,
+        `  ${color.cyan('/exit')}    ${color.dim('Finalizar la sesión interactiva')}`,
+      ]);
+      console.log('');
+      continue;
+    }
+
+    if (source === '/config') {
+      const format = (await ask('Formato [mp3/m4a/opus]', defaultFormat)).toLowerCase();
+      defaultFormat = format;
+      const output = await ask('Carpeta de destino', defaultOutput);
+      defaultOutput = output;
+      askPreferences = false;
+      console.log('');
+      continue;
     }
 
     if (askPreferences) {
@@ -105,7 +123,7 @@ async function guidedMode(userConfig = {}) {
     }
 
     console.log('');
-    const continueChoice = (await ask('¿Descargar otra canción? [Y/n/c (cambiar preferencias)]', 'y')).toLowerCase();
+    const continueChoice = (await ask('¿Descargar otra canción? [Y/n]', 'y')).toLowerCase();
     if (continueChoice === 'c' || continueChoice === 'config') {
       askPreferences = true;
       console.log('\n' + color.dim('─'.repeat(44)) + '\n');
