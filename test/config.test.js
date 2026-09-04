@@ -41,6 +41,7 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     await assert.rejects(() => setConfigValue('invalidKey', 'foo'), /Clave de configuración inválida/);
     await assert.rejects(() => setConfigValue('format', 'mp4'), /Formato no válido/);
     await assert.rejects(() => setConfigValue('concurrency', '0'), /concurrencia debe ser un número/);
+    await assert.rejects(() => setConfigValue('concurrency', '7'), /concurrencia debe ser un número/);
 
     // Reset restaura valores iniciales
     const reset = await resetConfig();
@@ -68,8 +69,8 @@ test('parseOptions adopta valores por defecto de la configuración global y perm
   assert.equal(optsDefault.thumbnail, false);
 
   // Con flags: los argumentos de línea de comandos tienen precedencia (-o, -c, --format)
-  const { options: optsOverride } = parseOptions(['https://example.com/audio', '--format', 'opus', '-c', '8', '-o', './local'], userConfig);
+  const { options: optsOverride } = parseOptions(['https://example.com/audio', '--format', 'opus', '-c', '6', '-o', './local'], userConfig);
   assert.equal(optsOverride.format, 'opus');
-  assert.equal(optsOverride.concurrency, 8);
+  assert.equal(optsOverride.concurrency, 6);
   assert.equal(optsOverride.output, './local');
 });

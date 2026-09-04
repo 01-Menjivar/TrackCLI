@@ -58,8 +58,8 @@ export async function setConfigValue(key, value) {
     config.format = value;
   } else if (key === 'concurrency') {
     const parsed = parseInt(value, 10);
-    if (!parsed || parsed < 1 || parsed > 16) {
-      throw new Error('La concurrencia debe ser un número entre 1 y 16.');
+    if (!parsed || parsed < 1 || parsed > 6) {
+      throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
     }
     config.concurrency = parsed;
   } else if (key === 'cover') {

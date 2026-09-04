@@ -20,7 +20,7 @@ ${color.bold('Uso')}
 ${color.bold('Opciones')}
   --format <mp3|m4a|opus>        Formato de audio (por defecto: mp3)
   -o, --output <carpeta>         Directorio de destino (por defecto: ./trackcli-downloads)
-  -c, --concurrency <1-16>       Descargas simultáneas en cola/lotes (por defecto: 3)
+  -c, --concurrency <1-6>        Descargas simultáneas en cola/lotes (por defecto: 3)
   -m, --no-cover                 Descarga rápida sin incrustar carátula
   -f, --overwrite                Sobrescribir archivos si ya existen en destino
 

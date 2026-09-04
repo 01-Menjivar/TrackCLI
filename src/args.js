@@ -40,7 +40,7 @@ export function parseOptions(tokens, userConfig = {}) {
     if (token === '-c' || token.startsWith('-c=')) {
       const value = token.startsWith('-c=') ? token.slice(3) : tokens[++index];
       const parsed = parseInt(value, 10);
-      if (!parsed || parsed < 1 || parsed > 16) throw new Error('La concurrencia debe ser un número entre 1 y 16.');
+      if (!parsed || parsed < 1 || parsed > 6) throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
       options.concurrency = parsed;
       continue;
     }
@@ -62,7 +62,7 @@ export function parseOptions(tokens, userConfig = {}) {
     if (flag === 'concurrency') {
       const value = attached ?? tokens[++index];
       const parsed = parseInt(value, 10);
-      if (!parsed || parsed < 1 || parsed > 16) throw new Error('La concurrencia debe ser un número entre 1 y 16.');
+      if (!parsed || parsed < 1 || parsed > 6) throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
       options.concurrency = parsed;
       continue;
     }

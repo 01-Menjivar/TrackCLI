@@ -49,6 +49,7 @@ test('valida y asigna valores de concurrencia y sobreescritura', () => {
   assert.equal(parseOptions(['-f']).options.overwrite, true);
   assert.equal(parseOptions(['--force']).options.overwrite, true);
   assert.throws(() => parseOptions(['--concurrency', '0']), /La concurrencia debe ser/);
+  assert.throws(() => parseOptions(['--concurrency', '7']), /La concurrencia debe ser/);
   assert.throws(() => parseOptions(['--concurrency', '20']), /La concurrencia debe ser/);
 });
 

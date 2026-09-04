@@ -674,8 +674,35 @@ export async function mapConcurrent(items, limit, fn) {
   return results;
 }
 
+export const DEFAULT_CONCURRENCY = 3;
+export const MAX_CONCURRENCY = 6;
+
+export function normalizeConcurrency(val, fallback = DEFAULT_CONCURRENCY) {
+  const parsed = parseInt(val, 10);
+  if (isNaN(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, MAX_CONCURRENCY);
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function formatYtDlpError(rawFailure, status, signal) {
+  const failure = (rawFailure || '').trim();
+  if (/HTTP Error 429|Too Many Requests/i.test(failure)) {
+    return 'YouTube ha limitado temporalmente las peticiones (HTTP 429). Reduce la concurrencia con -c 2 o espera unos minutos.';
+  }
+  if (/Sign in to confirm you(?:'re| are) not a bot/i.test(failure)) {
+    return 'YouTube requiere verificación de bot. Reduce la concurrencia con -c 2 o intenta más tarde.';
+  }
+  if (/HTTP Error 403: Forbidden/i.test(failure)) {
+    return 'Acceso denegado por YouTube (HTTP 403). La conexión o dirección IP fue restringida temporalmente.';
+  }
+  return failure || `yt-dlp terminó con código ${status ?? signal}.`;
+}
+
 export async function resolveBatchEntries(entries, options = {}, onProgress = null) {
-  const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
+  const concurrency = Math.max(1, Math.min(normalizeConcurrency(options.concurrency), 3));
   let resolvedCount = 0;
 
   const rawResults = await mapConcurrent(entries, concurrency, async (entry) => {
@@ -683,7 +710,7 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
     if (isStreamingUrl(entry)) {
       const meta = await resolveStreamingMetadata(entry);
       if (meta?.isAlbum && meta.tracks?.length) {
-        const albumConcurrency = Math.max(1, Math.min(concurrency, 6));
+        const albumConcurrency = concurrency;
         const albumJobs = await mapConcurrent(meta.tracks, albumConcurrency, async (tr) => {
           try {
             const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
@@ -753,7 +780,7 @@ function cleanTitle(raw) {
   return basename(cleaned);
 }
 
-export async function downloadOne(url, options, position) {
+export async function downloadOne(url, options = {}, position) {
   await mkdir(options.output, { recursive: true });
 
   const args = buildYtDlpArgs(url, options);
@@ -765,6 +792,7 @@ export async function downloadOne(url, options, position) {
   let failure = '';
   let sawProgress = false;
   let skipped = false;
+  const isConcurrent = Boolean(options.isConcurrent);
 
   const processLine = (line, isError = false) => {
     if (!line) return;
@@ -773,17 +801,19 @@ export async function downloadOne(url, options, position) {
     }
     const progressMatch = line.match(/\[download\]\s+([\d.]+)%(?:\s+of\s+~?([^\s]+))?(?:\s+at\s+([^\s]+))?(?:\s+ETA\s+([^\s]+))?/i);
     if (progressMatch) {
-      sawProgress = true;
-      const percent = progressMatch[1];
-      const size = progressMatch[2];
-      const speed = progressMatch[3];
-      const eta = progressMatch[4];
-      progress(percent, {
-        label: `${position} ${title}`,
-        speed,
-        eta,
-        size,
-      });
+      if (!isConcurrent) {
+        sawProgress = true;
+        const percent = progressMatch[1];
+        const size = progressMatch[2];
+        const speed = progressMatch[3];
+        const eta = progressMatch[4];
+        progress(percent, {
+          label: `${position} ${title}`,
+          speed,
+          eta,
+          size,
+        });
+      }
       return;
     }
     if (/\[download\]\s+Destination:/i.test(line)) title = cleanTitle(line);
@@ -809,22 +839,23 @@ export async function downloadOne(url, options, position) {
     child.on('close', (status, signal) => {
       if (sawProgress) endProgress();
       if (status === 0) resolveDownload({ title, url, skipped });
-      else rejectDownload(new Error(failure || `yt-dlp terminó con código ${status ?? signal}.`));
+      else rejectDownload(new Error(formatYtDlpError(failure, status, signal)));
     });
   });
 }
 
-export async function runQueue(jobs, options) {
+export async function runQueue(jobs, options = {}) {
   const output = resolve(options.output);
   await mkdir(output, { recursive: true });
-  const concurrency = Math.max(1, options.concurrency ?? 3);
+  const concurrency = normalizeConcurrency(options.concurrency);
+  const isConcurrent = jobs.length > 1;
   const results = new Array(jobs.length);
   let currentIndex = 0;
 
   const runJob = async (entry, index) => {
     const job = typeof entry === 'string' ? { url: entry } : entry;
     const label = `[${index + 1}/${jobs.length}]`;
-    const jobOptions = { ...options, output, metadata: job.metadata };
+    const jobOptions = { ...options, output, metadata: job.metadata, isConcurrent };
     try {
       const result = await downloadOne(job.url, jobOptions, label);
       results[index] = { ...result, ok: true };
@@ -836,7 +867,10 @@ export async function runQueue(jobs, options) {
     }
   };
 
-  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, async (_, workerIndex) => {
+    if (workerIndex > 0 && isConcurrent) {
+      await sleep(workerIndex * 300);
+    }
     while (currentIndex < jobs.length) {
       const index = currentIndex++;
       await runJob(jobs[index], index);
@@ -851,8 +885,9 @@ export async function runBatchPipeline(entries, options = {}) {
   const output = resolve(options.output);
   await mkdir(output, { recursive: true });
 
-  const searchConcurrency = Math.max(1, Math.min(options.concurrency ?? 3, 3));
-  const downloadConcurrency = Math.max(1, options.concurrency ?? 3);
+  const searchConcurrency = Math.max(1, Math.min(normalizeConcurrency(options.concurrency), 3));
+  const downloadConcurrency = normalizeConcurrency(options.concurrency);
+  const isConcurrent = entries.length > 1;
 
   const readyJobs = [];
   const results = [];
@@ -870,7 +905,6 @@ export async function runBatchPipeline(entries, options = {}) {
 
   let downloadIndex = 0;
 
-  const seenJobUrls = new Set();
   let entryIndex = 0;
   const resolveWorker = async () => {
     while (entryIndex < entries.length) {
@@ -955,7 +989,10 @@ export async function runBatchPipeline(entries, options = {}) {
     signalUpdate();
   });
 
-  const downloadWorker = async () => {
+  const downloadWorker = async (workerIndex) => {
+    if (workerIndex > 0 && isConcurrent) {
+      await sleep(workerIndex * 300);
+    }
     while (true) {
       let job = null;
       let jobPos = 0;
@@ -973,7 +1010,7 @@ export async function runBatchPipeline(entries, options = {}) {
       if (!job) continue;
 
       const label = `[#${jobPos}]`;
-      const jobOptions = { ...options, output, metadata: job.metadata };
+      const jobOptions = { ...options, output, metadata: job.metadata, isConcurrent };
       try {
         const result = await downloadOne(job.url, jobOptions, label);
         results.push({ ...result, ok: true, jobIndex: jobPos - 1 });
@@ -988,7 +1025,7 @@ export async function runBatchPipeline(entries, options = {}) {
 
   const downloadWorkers = Array.from(
     { length: downloadConcurrency },
-    () => downloadWorker()
+    (_, idx) => downloadWorker(idx)
   );
 
   await Promise.all([...resolveWorkers, ...downloadWorkers]);
