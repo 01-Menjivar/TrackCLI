@@ -716,13 +716,23 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
             const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
             return {
               url: song.url,
-              metadata: tr,
+              metadata: {
+                ...tr,
+                isAlbumTrack: true,
+                album: meta.title || tr.album,
+                albumArtist: meta.artist || tr.albumArtist || tr.artist,
+              },
               display: `${tr.title} · ${tr.artist || song.uploader} [${meta.service} - ${meta.title}]`,
             };
           } catch {
             return {
               url: `ytsearch1:${tr.query} audio`,
-              metadata: tr,
+              metadata: {
+                ...tr,
+                isAlbumTrack: true,
+                album: meta.title || tr.album,
+                albumArtist: meta.artist || tr.albumArtist || tr.artist,
+              },
               display: `${tr.title} (búsqueda directa) [${meta.title}]`,
             };
           }
@@ -862,7 +872,7 @@ export async function runQueue(jobs, options = {}) {
       const skipNotice = result.skipped ? ` ${color.dim('(ya existe)')}` : '';
       console.log(mark('success', `${color.bold(label)} ${result.title || job.url}${skipNotice}`));
     } catch (error) {
-      results[index] = { url: job.url, ok: false, error: error.message };
+      results[index] = { url: job.url, title: job.metadata?.title || (typeof entry === 'string' ? entry : job.url), ok: false, error: error.message };
       console.error(mark('error', `${color.bold(label)} ${error.message}`));
     }
   };
@@ -920,13 +930,23 @@ export async function runBatchPipeline(entries, options = {}) {
                 const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
                 return {
                   url: song.url,
-                  metadata: tr,
+                  metadata: {
+                    ...tr,
+                    isAlbumTrack: true,
+                    album: meta.title || tr.album,
+                    albumArtist: meta.artist || tr.albumArtist || tr.artist,
+                  },
                   display: `${tr.title} · ${tr.artist || song.uploader} [${meta.service} - ${meta.title}]`,
                 };
               } catch {
                 return {
                   url: `ytsearch1:${tr.query} audio`,
-                  metadata: tr,
+                  metadata: {
+                    ...tr,
+                    isAlbumTrack: true,
+                    album: meta.title || tr.album,
+                    albumArtist: meta.artist || tr.albumArtist || tr.artist,
+                  },
                   display: `${tr.title} (búsqueda directa) [${meta.title}]`,
                 };
               }
@@ -947,6 +967,14 @@ export async function runBatchPipeline(entries, options = {}) {
                 display: `${meta.title} (búsqueda directa)`,
               }];
             }
+          } else {
+            results.push({
+              url: entry,
+              display: entry,
+              ok: false,
+              error: 'No se pudieron extraer metadatos del enlace de streaming.',
+            });
+            continue;
           }
         } else if (isWebUrl(entry)) {
           jobList = [{ url: entry, display: entry }];
@@ -969,8 +997,13 @@ export async function runBatchPipeline(entries, options = {}) {
           readyJobs.push(j);
         }
         signalUpdate();
-      } catch {
-        // Ignore single resolution failure and continue with other batch entries
+      } catch (err) {
+        results.push({
+          url: entry,
+          display: entry,
+          ok: false,
+          error: `Error al procesar entrada: ${err.message}`,
+        });
       }
     }
   };
@@ -1013,11 +1046,11 @@ export async function runBatchPipeline(entries, options = {}) {
       const jobOptions = { ...options, output, metadata: job.metadata, isConcurrent };
       try {
         const result = await downloadOne(job.url, jobOptions, label);
-        results.push({ ...result, ok: true, jobIndex: jobPos - 1 });
+        results.push({ ...result, display: job.display, ok: true, jobIndex: jobPos - 1 });
         const skipNotice = result.skipped ? ` ${color.dim('(ya existe)')}` : '';
         console.log(mark('success', `${color.bold(label)} ${result.title || job.url}${skipNotice}`));
       } catch (error) {
-        results.push({ url: job.url, ok: false, error: error.message, jobIndex: jobPos - 1 });
+        results.push({ url: job.url, display: job.display, ok: false, error: error.message, jobIndex: jobPos - 1 });
         console.error(mark('error', `${color.bold(label)} ${error.message}`));
       }
     }

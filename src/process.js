@@ -26,6 +26,11 @@ export function killActiveChildProcesses() {
   for (const child of activeChildren) {
     try {
       if (!child.killed) {
+        if (process.platform === 'win32' && child.pid) {
+          try {
+            spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+          } catch {}
+        }
         child.kill('SIGTERM');
         setTimeout(() => {
           try {

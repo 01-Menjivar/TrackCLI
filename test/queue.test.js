@@ -432,3 +432,22 @@ test('runBatchPipeline procesa entradas en flujo continuo (pipeline productor-co
     process.env.PATH = originalPath;
   }
 });
+
+test('runBatchPipeline reporta transparentemente fallas de resolución en lugar de ignorarlas', async () => {
+  resetSearchCache();
+  resetMetadataCache();
+  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
+  const output = join(directory, 'output-pipeline-err');
+
+  const entries = ['https://open.spotify.com/track/invalid-track-not-exist'];
+  const results = await runBatchPipeline(entries, {
+    format: 'mp3',
+    output,
+    concurrency: 1,
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].ok, false);
+  assert.ok(results[0].error.includes('No se pudieron extraer metadatos') || results[0].error.includes('Error'));
+});
+

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { buildYtDlpArgs, escapeFfmpegMetadata, parseOptions } from '../src/args.js';
+import { buildYtDlpArgs, escapeFfmpegMetadata, parseOptions, sanitizePathSegment } from '../src/args.js';
 
 test('usa una carpeta de descargas predecible por defecto', () => {
   const { options, positional } = parseOptions(['https://example.com/audio']);
@@ -123,4 +123,65 @@ test('buildYtDlpArgs incluye tags ID3 enriquecidos con escape seguro', () => {
   assert.ok(ffmpegArg.includes('track="1/10"'));
   assert.ok(ffmpegArg.includes('genre="Disco / Funk"'));
   assert.ok(ffmpegArg.includes('album_artist="Michael Jackson"'));
+});
+
+test('sanitizePathSegment limpia caracteres no válidos para el sistema de archivos', () => {
+  assert.equal(sanitizePathSegment('AC/DC: Back *in* "Black"?'), 'AC_DC_ Back _in_ _Black__');
+  assert.equal(sanitizePathSegment('...Canción Secreta...'), 'Canción Secreta...');
+  assert.equal(sanitizePathSegment(''), '');
+  assert.equal(sanitizePathSegment(null), '');
+});
+
+test('buildYtDlpArgs organiza pistas de álbum en subcarpeta y antepone numeración con ceros', () => {
+  const args = buildYtDlpArgs('https://example.com/track', {
+    format: 'opus',
+    output: '/Music',
+    metadata: {
+      isAlbumTrack: true,
+      title: 'Come Together',
+      artist: 'The Beatles',
+      album: 'Abbey Road',
+      track: '1/17',
+    },
+  });
+
+  const outIdx = args.indexOf('--output');
+  assert.ok(outIdx !== -1);
+  assert.ok(args[outIdx + 1].includes('The Beatles - Abbey Road'));
+  assert.ok(args[outIdx + 1].includes('01 - Come Together.%(ext)s'));
+});
+
+test('buildYtDlpArgs previene colisiones en pistas individuales usando [Artista] - [Título]', () => {
+  const args = buildYtDlpArgs('https://example.com/single', {
+    format: 'mp3',
+    output: '/Music',
+    metadata: {
+      title: 'Intro',
+      artist: 'The xx',
+    },
+  });
+
+  const outIdx = args.indexOf('--output');
+  assert.ok(outIdx !== -1);
+  assert.ok(args[outIdx + 1].includes('The xx - Intro.%(ext)s'));
+});
+
+test('parseOptions y buildYtDlpArgs soportan cookies y cookies-from-browser', () => {
+  const parsedBrowser = parseOptions(['https://example.com', '-b', 'brave']);
+  assert.equal(parsedBrowser.options.cookiesBrowser, 'brave');
+  const argsBrowser = buildYtDlpArgs('https://example.com', parsedBrowser.options);
+  assert.ok(argsBrowser.includes('--cookies-from-browser'));
+  assert.ok(argsBrowser.includes('brave'));
+
+  const parsedFile = parseOptions(['https://example.com', '--cookies', '/path/cookies.txt']);
+  assert.equal(parsedFile.options.cookies, '/path/cookies.txt');
+  const argsFile = buildYtDlpArgs('https://example.com', parsedFile.options);
+  assert.ok(argsFile.includes('--cookies'));
+  assert.ok(argsFile.includes('/path/cookies.txt'));
+});
+
+test('parseOptions respeta thumbnail: false para retrocompatibilidad', () => {
+  const parsed = parseOptions(['https://example.com'], { thumbnail: false });
+  assert.equal(parsed.options.cover, false);
+  assert.equal(parsed.options.thumbnail, false);
 });

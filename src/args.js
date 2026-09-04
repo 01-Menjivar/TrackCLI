@@ -2,6 +2,16 @@ import path from 'node:path';
 
 const formats = new Set(['mp3', 'm4a', 'opus']);
 
+export function sanitizePathSegment(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+/, '')
+    .slice(0, 120);
+}
+
 export function isDedicatedPlaylistUrl(url) {
   if (!url || typeof url !== 'string') return false;
   try {
@@ -16,12 +26,14 @@ export function isDedicatedPlaylistUrl(url) {
 }
 
 export function parseOptions(tokens, userConfig = {}) {
-  const coverDefault = userConfig.cover !== false && userConfig.noCover !== true && userConfig.minimal !== true;
+  const coverDefault = userConfig.cover !== false && userConfig.thumbnail !== false && userConfig.noCover !== true && userConfig.minimal !== true;
   const options = {
     format: userConfig.format ?? 'mp3',
     output: userConfig.output ?? path.join(process.cwd(), 'trackcli-downloads'),
     cover: coverDefault,
     concurrency: userConfig.concurrency ?? 3,
+    cookies: userConfig.cookies || null,
+    cookiesBrowser: userConfig.cookiesBrowser || userConfig['cookies-browser'] || null,
     overwrite: false,
     playlist: false,
   };
@@ -50,6 +62,12 @@ export function parseOptions(tokens, userConfig = {}) {
       options.output = value;
       continue;
     }
+    if (token === '-b' || token.startsWith('-b=')) {
+      const value = token.startsWith('-b=') ? token.slice(3) : tokens[++index];
+      if (!value || value.startsWith('-')) throw new Error('Falta el nombre del navegador para -b / --cookies-from-browser.');
+      options.cookiesBrowser = value.trim();
+      continue;
+    }
     if (!token.startsWith('--')) {
       positional.push(token);
       continue;
@@ -70,6 +88,18 @@ export function parseOptions(tokens, userConfig = {}) {
       const value = attached ?? tokens[++index];
       if (!value || value.startsWith('--')) throw new Error(`Falta un valor para --${flag}.`);
       options[flag] = value;
+      continue;
+    }
+    if (flag === 'cookies-from-browser' || flag === 'browser') {
+      const value = attached ?? tokens[++index];
+      if (!value || value.startsWith('--')) throw new Error('Falta el nombre del navegador para --cookies-from-browser.');
+      options.cookiesBrowser = value.trim();
+      continue;
+    }
+    if (flag === 'cookies') {
+      const value = attached ?? tokens[++index];
+      if (!value || value.startsWith('--')) throw new Error('Falta la ruta del archivo para --cookies.');
+      options.cookies = value.trim();
       continue;
     }
     throw new Error(`No conozco la opción --${flag}. Ejecuta trackcli help.`);
@@ -97,7 +127,32 @@ export function escapeFfmpegMetadata(value) {
 }
 
 export function buildYtDlpArgs(url, options = {}) {
-  const output = path.join(options.output || 'trackcli-downloads', '%(title)s.%(ext)s');
+  const baseOutput = options.output || 'trackcli-downloads';
+  let output;
+
+  if (options.metadata) {
+    const meta = options.metadata;
+    const isAlbum = Boolean(meta.isAlbumTrack || (meta.album && meta.track));
+    const artist = sanitizePathSegment(meta.artist || meta.albumArtist || '');
+    const title = sanitizePathSegment(meta.title || '');
+    const album = sanitizePathSegment(meta.album || '');
+
+    if (isAlbum && (album || artist)) {
+      const folderName = artist && album ? `${artist} - ${album}` : (album || artist);
+      const trackRaw = String(meta.track || '').split('/')[0].trim();
+      const trackNum = parseInt(trackRaw, 10);
+      const trackPrefix = !isNaN(trackNum) && trackNum > 0 ? `${String(trackNum).padStart(2, '0')} - ` : '';
+      const filename = title ? `${trackPrefix}${title}.%(ext)s` : `${trackPrefix}%(title)s.%(ext)s`;
+      output = path.join(baseOutput, folderName, filename);
+    } else if (artist && title) {
+      output = path.join(baseOutput, `${artist} - ${title}.%(ext)s`);
+    } else {
+      output = path.join(baseOutput, '%(title)s.%(ext)s');
+    }
+  } else {
+    output = path.join(baseOutput, '%(title)s.%(ext)s');
+  }
+
   const format = options.format || 'mp3';
   const args = [
     '--no-warnings',
@@ -112,6 +167,11 @@ export function buildYtDlpArgs(url, options = {}) {
     '--parse-metadata', '%(title)s:%(artist)s - %(track)s',
     '--no-continue',
   ];
+  if (options.cookies) {
+    args.push('--cookies', options.cookies);
+  } else if (options.cookiesBrowser) {
+    args.push('--cookies-from-browser', options.cookiesBrowser);
+  }
   if (options.overwrite) {
     args.push('--force-overwrites');
   } else {

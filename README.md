@@ -19,7 +19,8 @@ TrackCLI automatiza la localización y descarga de audio a partir de búsquedas 
   - [Instalador automático (Windows)](#instalador-automático-windows)
   - [Instalación global con npm](#instalación-global-con-npm)
 - [Guía de Uso](#guía-de-uso)
-  - [Modo interactivo](#modo-interactivo)
+  - [Despacho inteligente (Smart Routing)](#despacho-inteligente-smart-routing)
+  - [Modo interactivo continuo](#modo-interactivo-continuo)
   - [Búsqueda por nombre](#búsqueda-por-nombre)
   - [Descarga por enlace (Pistas y Álbumes)](#descarga-por-enlace-pistas-y-álbumes)
   - [Descarga por lotes (archivo .txt)](#descarga-por-lotes-archivo-txt)
@@ -121,11 +122,29 @@ npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/
 
 ## Guía de Uso
 
-### Modo interactivo
-Inicia una consola guiada paso a paso:
+### Despacho inteligente (Smart Routing)
+
+TrackCLI detecta automáticamente el tipo de entrada sin necesidad de escribir subcomandos:
+
+```bash
+# Búsqueda y descarga directa por nombre
+trackcli "Artista - Canción"
+
+# Descarga directa por enlace de canción o álbum
+trackcli "https://open.spotify.com/album/<ID_ALBUM>" -o ~/Music
+
+# Procesamiento directo de un listado por lotes
+trackcli lista.txt -c 4
+```
+
+*(Los subcomandos explícitos `search`, `download` y `batch` se mantienen disponibles para scripts y automatizaciones).*
+
+### Modo interactivo continuo
+Inicia una consola guiada para procesar múltiples canciones sin reiniciar la herramienta:
 ```bash
 trackcli
 ```
+*Tus preferencias de formato y carpeta se configuran en la primera pista y se reutilizan en las siguientes para agilizar la sesión.*
 
 ### Búsqueda por nombre
 ```bash
@@ -141,14 +160,14 @@ trackcli search "Artista - Canción" -m
 
 ### Descarga por enlace (Pistas y Álbumes)
 ```bash
-# Pista individual de Spotify o Apple Music
+# Pista individual de Spotify o Apple Music (se guarda como "Artista - Canción.ext")
 trackcli download "https://open.spotify.com/track/<ID_PISTA>"
 trackcli download "https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>?i=<ID_PISTA>"
 
 # Enlace de YouTube
 trackcli download "https://www.youtube.com/watch?v=<ID_VIDEO>"
 
-# Álbum o playlist completa (descarga automática con numeración)
+# Álbum completo (se organiza en subcarpeta "Artista - Álbum/" con pistas "01 - Canción.ext")
 trackcli download "https://open.spotify.com/album/<ID_ALBUM>"
 trackcli download "https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>"
 trackcli download "https://www.youtube.com/playlist?list=<ID_PLAYLIST>"
@@ -186,6 +205,9 @@ trackcli config set output ~/Music
 # Establecer formato preferido (opus, m4a o mp3)
 trackcli config set format opus
 
+# Guardar navegador preferido para extracción de cookies
+trackcli config set cookies-browser chrome
+
 # Restablecer valores predeterminados
 trackcli config reset
 ```
@@ -201,6 +223,8 @@ trackcli config reset
 | `--concurrency` | `-c` | Número de descargas simultáneas en colas y álbumes. | `1` a `6` (recomendado: `3`) | `3` |
 | `--no-cover` | `-m` | Descarga rápida de audio sin incrustar portada. | Booleano | `false` |
 | `--overwrite` | `-f` | Sobrescribe archivos si ya existen en el destino. | Booleano | `false` |
+| `--cookies-from-browser` | `-b` | Extrae cookies del navegador para evitar verificaciones de bot. | `chrome`, `firefox`, `brave`, `edge`, etc. | `null` |
+| `--cookies` | | Ruta a archivo de cookies en formato Netscape (`cookies.txt`). | `<ruta_archivo>` | `null` |
 
 ---
 

@@ -1,3 +1,4 @@
+import { existsSync, statSync } from 'node:fs';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { parseOptions } from './args.js';
@@ -9,35 +10,39 @@ import { card, color, createSpinner, header, mark, selectItemInteractive } from 
 
 const HELP = `
 ${color.bold('Uso')}
-  trackcli                       modo interactivo
-  trackcli search <canción>      busca y descarga una canción
-  trackcli download <URL...>     descarga desde enlaces directos (YouTube, Spotify, Apple Music)
-  trackcli batch <archivo.txt>   descarga desde un archivo de lista
-  trackcli config [set|reset]    gestiona la configuración global de TrackCLI
-  trackcli doctor                verifica dependencias del sistema
-  trackcli update                actualiza TrackCLI a la versión más reciente
+  trackcli                                modo interactivo guiado
+  trackcli <canción>                      busca y descarga una pista
+  trackcli <URL...>                       descarga desde enlaces (Spotify, Apple Music, YouTube)
+  trackcli <archivo.txt>                  descarga por lotes desde un listado
+  trackcli search <canción>               búsqueda explícita
+  trackcli download <URL...>              descarga explícita desde enlaces
+  trackcli batch <archivo.txt>            descarga explícita desde archivo
+  trackcli config [set|reset]             gestiona la configuración global de TrackCLI
+  trackcli doctor                         verifica dependencias del sistema
+  trackcli update                         actualiza TrackCLI a la versión más reciente
 
 ${color.bold('Opciones')}
-  --format <mp3|m4a|opus>        Formato de audio (por defecto: mp3)
-  -o, --output <carpeta>         Directorio de destino (por defecto: ./trackcli-downloads)
-  -c, --concurrency <1-6>        Descargas simultáneas en cola/lotes (por defecto: 3)
-  -m, --no-cover                 Descarga rápida sin incrustar carátula
-  -f, --overwrite                Sobrescribir archivos si ya existen en destino
+  --format <mp3|m4a|opus>                 Formato de audio (por defecto: mp3)
+  -o, --output <carpeta>                  Directorio de destino (por defecto: ./trackcli-downloads)
+  -c, --concurrency <1-6>                 Descargas simultáneas en cola/lotes (por defecto: 3)
+  -m, --no-cover                          Descarga rápida sin incrustar carátula
+  -f, --overwrite                         Sobrescribir archivos si ya existen en destino
+  -b, --cookies-from-browser <navegador>  Extrae cookies del navegador (chrome, firefox, brave, etc.)
+  --cookies <archivo>                     Ruta a un archivo cookies.txt de YouTube
 
 ${color.bold('Configuración Global')}
-  trackcli config                   Muestra las preferencias activas
-  trackcli config set format m4a    Establece el formato por defecto
-  trackcli config set output ~/Songs  Establece la carpeta de destino por defecto
-  trackcli config reset             Restaura los valores por defecto
+  trackcli config                         Muestra las preferencias activas
+  trackcli config set format opus         Establece el formato por defecto
+  trackcli config set output ~/Music      Establece la carpeta de destino por defecto
+  trackcli config set cookies-browser chrome  Guarda el navegador para cookies
+  trackcli config reset                   Restaura los valores por defecto
 
 ${color.bold('Ejemplos')}
-  trackcli search "Artista - Cancion"
-  trackcli search "Artista - Cancion" -m
-  trackcli download "https://open.spotify.com/track/..."
-  trackcli download "https://open.spotify.com/album/..."
-  trackcli download "https://www.youtube.com/watch?v=..." -o ~/Music
-  trackcli batch lista.txt --format m4a -c 4
-  trackcli update
+  trackcli "Artista - Canción"
+  trackcli "https://open.spotify.com/album/..." -o ~/Music
+  trackcli lista.txt -c 4
+  trackcli search "Artista - Canción" -m
+  trackcli download "https://www.youtube.com/watch?v=..."
 `;
 
 function showHelp() {
@@ -68,6 +73,7 @@ async function guidedMode(userConfig = {}) {
 
   let defaultFormat = userConfig.format || 'mp3';
   let defaultOutput = userConfig.output || './trackcli-downloads';
+  let askPreferences = true;
 
   while (true) {
     const source = await ask('Búsqueda (Artista - Canción), enlace o .txt');
@@ -76,14 +82,17 @@ async function guidedMode(userConfig = {}) {
       break;
     }
 
-    const format = (await ask('Formato [mp3/m4a/opus]', defaultFormat)).toLowerCase();
-    defaultFormat = format;
+    if (askPreferences) {
+      const format = (await ask('Formato [mp3/m4a/opus]', defaultFormat)).toLowerCase();
+      defaultFormat = format;
 
-    const output = await ask('Carpeta de destino', defaultOutput);
-    defaultOutput = output;
+      const output = await ask('Carpeta de destino', defaultOutput);
+      defaultOutput = output;
+      askPreferences = false;
+    }
 
     console.log('');
-    const tokens = ['--format', format, '--output', output];
+    const tokens = ['--format', defaultFormat, '--output', defaultOutput];
 
     if (source.endsWith('.txt')) {
       await executeBatch(source, tokens, userConfig);
@@ -96,7 +105,12 @@ async function guidedMode(userConfig = {}) {
     }
 
     console.log('');
-    const continueChoice = (await ask('¿Descargar otra canción? [Y/n]', 'y')).toLowerCase();
+    const continueChoice = (await ask('¿Descargar otra canción? [Y/n/c (cambiar preferencias)]', 'y')).toLowerCase();
+    if (continueChoice === 'c' || continueChoice === 'config') {
+      askPreferences = true;
+      console.log('\n' + color.dim('─'.repeat(44)) + '\n');
+      continue;
+    }
     if (continueChoice === 'n' || continueChoice === 'no') {
       console.log(color.dim(`\n✦ ¡Listo! Tus canciones están en ${color.cyan(defaultOutput)}\n`));
       break;
@@ -143,7 +157,12 @@ async function executeDownload(tokens, userConfig = {}) {
           const matched = resolved[i];
           jobs.push({
             url: matched?.url || `ytsearch1:${trackMeta.query} audio`,
-            metadata: trackMeta,
+            metadata: {
+              ...trackMeta,
+              isAlbumTrack: true,
+              album: meta.title || trackMeta.album,
+              albumArtist: meta.artist || trackMeta.albumArtist || trackMeta.artist,
+            },
           });
         }
       } else {
@@ -229,9 +248,16 @@ async function executeBatch(filename, tokens, userConfig = {}) {
       `  ${color.dim('Destino ')} ${options.output}`,
     ]);
   } else {
+    const failedLines = results
+      .filter((item) => !item.ok)
+      .map((item) => `  ${color.red('✖')} ${color.bold(item.display || item.title || item.url || 'Pista')}: ${color.dim(item.error || 'Fallo en descarga')}`);
     card(color.yellow('▲ Descarga con advertencias'), [
       `  ${color.dim('Pistas  ')} ${color.green(`${successful} completada${successful === 1 ? '' : 's'}`)} · ${color.red(`${failed} con error`)} ${color.dim(`(${elapsed}s)`)}`,
       `  ${color.dim('Destino ')} ${options.output}`,
+      '',
+      color.bold('Pistas omitidas o con error:'),
+      ...failedLines.slice(0, 10),
+      ...(failedLines.length > 10 ? [`  ${color.dim(`... y ${failedLines.length - 10} más`)}`] : []),
     ]);
   }
   if (failed) process.exitCode = 1;
@@ -311,7 +337,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
 async function executeSearch(tokens, userConfig = {}) {
   const { options, positional } = parseOptions(tokens, userConfig);
   const query = positional.join(' ').trim();
-  if (!query) throw new Error('Indica el nombre de la canción. Ejemplo: trackcli search "Sway - Tove Styrke"');
+  if (!query) throw new Error('Indica el nombre de la canción. Ejemplo: trackcli search "Artista - Canción"');
   await ensureRequirements();
 
   const spinner = createSpinner(`Buscando ${color.bold(query)}…`);
@@ -406,9 +432,16 @@ async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
       `  ${color.dim('Destino ')} ${options.output}`,
     ]);
   } else {
+    const failedLines = results
+      .filter((item) => !item.ok)
+      .map((item) => `  ${color.red('✖')} ${color.bold(item.title || item.url || 'Pista')}: ${color.dim(item.error || 'Fallo en descarga')}`);
     card(color.yellow('▲ Descarga con advertencias'), [
       `  ${color.dim('Pistas  ')} ${color.green(`${successful} completada${successful === 1 ? '' : 's'}`)} · ${color.red(`${failed} con error`)} ${color.dim(`(${elapsed}s)`)}`,
       `  ${color.dim('Destino ')} ${options.output}`,
+      '',
+      color.bold('Pistas omitidas o con error:'),
+      ...failedLines.slice(0, 10),
+      ...(failedLines.length > 10 ? [`  ${color.dim(`... y ${failedLines.length - 10} más`)}`] : []),
     ]);
   }
   if (failed) process.exitCode = 1;
@@ -492,5 +525,29 @@ export async function run(argv) {
     const [filename, ...tokens] = rest;
     return executeBatch(filename, tokens, userConfig);
   }
+
+  // --- Despacho inteligente (Smart CLI Routing) ---
+  if (isWebUrl(command) || isStreamingUrl(command)) {
+    header();
+    return executeDownload(argv, userConfig);
+  }
+
+  if (command.endsWith('.txt') || (existsSync(command) && statSync(command).isFile())) {
+    header();
+    return executeBatch(command, rest, userConfig);
+  }
+
+  if (!command.startsWith('-') || argv.some((arg) => !arg.startsWith('-'))) {
+    header();
+    if (process.stdin.isTTY && !argv.some((arg) => arg.startsWith('-'))) {
+      const { positional } = parseOptions(argv, userConfig);
+      const query = positional.join(' ').trim();
+      if (query) {
+        return executeSearchInteractive(query, argv.filter((a) => a.startsWith('-')), userConfig);
+      }
+    }
+    return executeSearch(argv, userConfig);
+  }
+
   throw new Error(`Comando no reconocido: "${command}". Usa "trackcli help".`);
 }

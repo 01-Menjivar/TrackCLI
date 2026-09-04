@@ -7,6 +7,8 @@ export const DEFAULT_CONFIG = {
   output: join(process.cwd(), 'trackcli-downloads'),
   concurrency: 3,
   cover: true,
+  cookies: null,
+  cookiesBrowser: null,
 };
 
 export function getConfigDir() {
@@ -43,7 +45,7 @@ export async function saveConfig(config) {
 }
 
 export async function setConfigValue(key, value) {
-  const validKeys = new Set(['format', 'output', 'concurrency', 'cover', 'minimal']);
+  const validKeys = new Set(['format', 'output', 'concurrency', 'cover', 'minimal', 'thumbnail', 'cookies', 'cookies-browser', 'cookiesBrowser']);
   if (!validKeys.has(key)) {
     throw new Error(`Clave de configuración inválida: "${key}". Claves permitidas: ${[...validKeys].join(', ')}.`);
   }
@@ -62,10 +64,20 @@ export async function setConfigValue(key, value) {
       throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
     }
     config.concurrency = parsed;
-  } else if (key === 'cover') {
+  } else if (key === 'cover' || key === 'thumbnail') {
     config.cover = value === 'true' || value === '1' || value === true;
   } else if (key === 'minimal') {
     config.cover = !(value === 'true' || value === '1' || value === true);
+  } else if (key === 'cookies-browser' || key === 'cookiesBrowser') {
+    const validBrowsers = new Set(['brave', 'chrome', 'chromium', 'edge', 'firefox', 'opera', 'safari', 'vivaldi']);
+    const lower = String(value).toLowerCase().trim();
+    const baseBrowser = lower.split(/[:+]/)[0];
+    if (!validBrowsers.has(baseBrowser)) {
+      throw new Error(`Navegador no válido: "${value}". Navegadores soportados: ${[...validBrowsers].join(', ')}.`);
+    }
+    config.cookiesBrowser = String(value).trim();
+  } else if (key === 'cookies') {
+    config.cookies = String(value).trim();
   } else if (key === 'output') {
     config.output = String(value);
   }
