@@ -285,7 +285,7 @@ async function interactiveMenu(userConfig = {}) {
     }
 
     if (selected.id === 'search') {
-      const query = await ask('Canción o artista');
+      const query = await ask('Artista - Canción');
       if (query === null) continue;
       if (query) {
         console.log('');
