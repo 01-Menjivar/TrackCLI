@@ -1,3 +1,8 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+export const VERSION = require('../package.json').version;
+
 const isOutputColorable = process.env.FORCE_COLOR !== undefined ||
   Boolean(process.stdout.isTTY) ||
   process.env.NODE_ENV === 'test' ||
@@ -60,7 +65,7 @@ export function mark(kind, text) {
 }
 
 export function header() {
-  console.log(`\n${color.brand(color.bold('◆ TrackCLI'))} ${color.dim('v0.1.1 · audio extractor')}\n`);
+  console.log(`\n${color.brand(color.bold('◆ TrackCLI'))} ${color.dim(`v${VERSION} · audio extractor`)}\n`);
 }
 
 export function stripAnsi(text) {

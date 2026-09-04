@@ -6,7 +6,7 @@ import { getConfigPath, loadConfig, resetConfig, setConfigValue } from './config
 import { findBestAudioSong, isStreamingUrl, isWebUrl, mapConcurrent, readQueue, resolveBatchEntries, resolveStreamingMetadata, runBatchPipeline, runQueue, searchSongs } from './download.js';
 import { setupSignalHandlers, spawnTracked } from './process.js';
 import { ensureRequirements, inspectRequirements } from './requirements.js';
-import { card, color, createSpinner, header, mark, selectItemInteractive } from './ui.js';
+import { card, color, createSpinner, header, mark, selectItemInteractive, VERSION } from './ui.js';
 
 const HELP = `
 ${color.bold('Uso')}
@@ -719,7 +719,7 @@ export async function run(argv) {
   const [command, ...rest] = argv;
   if (!command || command === 'interactive' || command === 'menu') return interactiveMenu(userConfig);
   if (['help', '--help', '-h'].includes(command)) return showHelp();
-  if (['version', '--version', '-v'].includes(command)) return console.log('TrackCLI 0.1.1');
+  if (['version', '--version', '-v'].includes(command)) return console.log(`TrackCLI ${VERSION}`);
   if (command === 'doctor') return doctor();
   if (command === 'update' || command === 'upgrade') return update();
   if (command === 'config') return executeConfig(rest);
