@@ -54,12 +54,42 @@ function showHelp() {
   console.log(HELP);
 }
 
-async function ask(question, defaultValue = '') {
-  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+export async function ask(question, defaultValue = '') {
   const suffix = defaultValue ? color.dim(` (${defaultValue})`) : '';
-  const answer = await terminal.question(`${color.cyan('›')} ${question}${suffix}: `);
-  terminal.close();
-  return answer.trim() || defaultValue;
+  const promptText = `${color.cyan('›')} ${question}${suffix}: `;
+
+  if (!process.stdin.isTTY) {
+    const terminal = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await terminal.question(promptText);
+    terminal.close();
+    return answer.trim() || defaultValue;
+  }
+
+  const ac = new AbortController();
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+
+  const onData = (chunk) => {
+    if (chunk.length === 1 && chunk[0] === 0x1b) {
+      ac.abort();
+    }
+  };
+  process.stdin.on('data', onData);
+
+  try {
+    const answer = await terminal.question(promptText, { signal: ac.signal });
+    return answer.trim() || defaultValue;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      if (process.stdout.isTTY) {
+        process.stdout.write('\r\x1b[2K');
+      }
+      return null;
+    }
+    throw err;
+  } finally {
+    process.stdin.removeListener('data', onData);
+    terminal.close();
+  }
 }
 
 async function interactiveConfig(activeConfig) {
@@ -125,12 +155,14 @@ async function interactiveConfig(activeConfig) {
       }
     } else if (action.id === 'output') {
       const newOutput = await ask('Nueva carpeta de destino', cfg.output);
+      if (newOutput === null) continue;
       if (newOutput && newOutput !== cfg.output) {
         await setConfigValue('output', newOutput);
         console.log(mark('success', `Carpeta actualizada a: ${color.bold(newOutput)}\n`));
       }
     } else if (action.id === 'concurrency') {
       const newConcurrency = await ask('Concurrencia (1 a 6 descargas simultáneas)', String(cfg.concurrency));
+      if (newConcurrency === null) continue;
       if (newConcurrency) {
         try {
           await setConfigValue('concurrency', newConcurrency);
@@ -209,6 +241,7 @@ async function interactiveConfig(activeConfig) {
       const currentVal = cfg.cookies || '';
       console.log(color.dim('Indica la ruta a un archivo cookies.txt de YouTube (escribe "none" para quitarlo).'));
       const newFile = await ask('Ruta del archivo cookies.txt', currentVal);
+      if (newFile === null) continue;
       if (newFile !== undefined && newFile !== '') {
         await setConfigValue('cookies', newFile);
         console.log(mark('success', newFile === 'none' ? 'Archivo de cookies desvinculado.\n' : `Archivo de cookies guardado: ${color.bold(newFile)}\n`));
@@ -253,6 +286,7 @@ async function interactiveMenu(userConfig = {}) {
 
     if (selected.id === 'search') {
       const query = await ask('Canción o artista');
+      if (query === null) continue;
       if (query) {
         console.log('');
         try {
@@ -265,6 +299,7 @@ async function interactiveMenu(userConfig = {}) {
       console.log('');
     } else if (selected.id === 'download') {
       const url = await ask('Enlace de YouTube, Spotify o Apple Music');
+      if (url === null) continue;
       if (url) {
         console.log('');
         try {
@@ -277,6 +312,7 @@ async function interactiveMenu(userConfig = {}) {
       console.log('');
     } else if (selected.id === 'batch') {
       const filePath = await ask('Ruta del listado (.txt)');
+      if (filePath === null) continue;
       if (filePath) {
         console.log('');
         try {
@@ -469,7 +505,9 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
 
     console.log(mark('info', `Encontrada: ${color.bold(best.title)} ${color.dim(`[${best.duration}] · ${best.uploader}`)} ${color.dim(`(${formatTag})`)}`));
 
-    const confirm = (await ask('¿Es esta canción? [Y/n]', 'y')).toLowerCase();
+    const confirmRaw = await ask('¿Es esta canción? [Y/n]', 'y');
+    if (confirmRaw === null) return;
+    const confirm = confirmRaw.toLowerCase();
 
     if (confirm === 'y' || confirm === 'yes' || confirm === 's' || confirm === 'si' || confirm === '') {
       await executeQueue([best.url], options, true);
