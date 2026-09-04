@@ -52,7 +52,7 @@ Este plan está diseñado bajo una filosofía de **software honesto, transparent
 
 - [x] **2.2 Menú interactivo navegable (`interactiveMenu`)**
   - **Problema:** Al ejecutar `trackcli` sin argumentos, se iniciaba un asistente que forzaba una búsqueda inmediata y exigía comandos artificiales como `/config` dentro de un prompt de búsqueda.
-  - **Acción:** Reemplazar el asistente rígido por un menú interactivo navegable con flechas (`↑` / `↓` / `Enter`) para seleccionar la acción a realizar (búsqueda, descarga de URL/álbum, lotes, configuración persistente o diagnóstico) sin fricción.
+  - **Acción:** Reemplazar el asistente rígido por un menú interactivo navegable con flechas (`↑` / `↓` / `Enter`) para seleccionar la acción a realizar (búsqueda, descarga de URL/álbum, descarga desde un listado, configuración persistente o diagnóstico) sin fricción.
   - **Archivos:** `src/cli.js`, `src/ui.js`, `test/cli.test.js`.
 
 ---

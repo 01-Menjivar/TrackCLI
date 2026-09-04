@@ -147,7 +147,7 @@ async function interactiveMenu(userConfig = {}) {
   const MENU_OPTIONS = [
     { id: 'search', label: 'Buscar y descargar canción' },
     { id: 'download', label: 'Descargar enlace o álbum (URL)' },
-    { id: 'batch', label: 'Procesar lista de enlaces (.txt)' },
+    { id: 'batch', label: 'Descargar desde un listado (.txt)' },
     { id: 'config', label: 'Configuración' },
     { id: 'doctor', label: 'Diagnóstico del sistema' },
     { id: 'exit', label: 'Salir' },
@@ -191,7 +191,7 @@ async function interactiveMenu(userConfig = {}) {
       }
       console.log('');
     } else if (selected.id === 'batch') {
-      const filePath = await ask('Ruta del archivo de texto (.txt)');
+      const filePath = await ask('Ruta del listado (.txt)');
       if (filePath) {
         console.log('');
         try {
