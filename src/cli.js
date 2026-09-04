@@ -18,14 +18,11 @@ ${color.bold('Uso')}
   trackcli update                actualiza TrackCLI a la versión más reciente
 
 ${color.bold('Opciones')}
-  --format <mp3|m4a|opus>           Formato de audio (por defecto: mp3)
-  --quality <0-10>                  Calidad VBR de MP3 (0 = máxima)
-  --output <carpeta>                Directorio de destino (por defecto: ./trackcli-downloads)
-  --concurrency, -c <1-16>          Descargas simultáneas en cola/lotes (por defecto: 3)
-  --minimal, -m, --fast             Modo minimal (solo audio, sin portada)
-  --playlist                        Descargar playlist completa
-  --no-thumbnail                    No incrustar portada
-  --overwrite, -f                   Sobrescribir archivos si ya existen en destino
+  --format <mp3|m4a|opus>        Formato de audio (por defecto: mp3)
+  -o, --output <carpeta>         Directorio de destino (por defecto: ./trackcli-downloads)
+  -c, --concurrency <1-16>       Descargas simultáneas en cola/lotes (por defecto: 3)
+  -m, --no-cover                 Descarga rápida sin incrustar carátula
+  -f, --overwrite                Sobrescribir archivos si ya existen en destino
 
 ${color.bold('Configuración Global')}
   trackcli config                   Muestra las preferencias activas
@@ -35,10 +32,10 @@ ${color.bold('Configuración Global')}
 
 ${color.bold('Ejemplos')}
   trackcli search "Artista - Cancion"
-  trackcli search "Artista - Cancion" --minimal
+  trackcli search "Artista - Cancion" -m
   trackcli download "https://open.spotify.com/track/..."
   trackcli download "https://open.spotify.com/album/..."
-  trackcli download <URL> -m
+  trackcli download "https://www.youtube.com/watch?v=..." -o ~/Music
   trackcli batch lista.txt --format m4a -c 4
   trackcli update
 `;
@@ -269,7 +266,8 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
     }
 
     const best = candidates[0];
-    const formatTag = `${options.format.toUpperCase()} ${color.dim(`(calidad ${options.quality})`)}${options.minimal ? color.dim(' · minimal (sin portada)') : ''}`;
+    const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
+    const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
     card('✦ Canción encontrada', [
       `  ${color.dim('Título  ')} ${color.bold(best.title)}`,
@@ -326,7 +324,8 @@ async function executeSearch(tokens, userConfig = {}) {
     throw err;
   }
 
-  const formatTag = `${options.format.toUpperCase()} ${color.dim(`(calidad ${options.quality})`)}${options.minimal ? color.dim(' · minimal (sin portada)') : ''}`;
+  const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
+  const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
   card('✦ Canción encontrada', [
     `  ${color.dim('Título  ')} ${color.bold(song.title)}`,
@@ -347,10 +346,9 @@ async function executeConfig(tokens) {
     const configPath = getConfigPath();
     card('⚙ Configuración de TrackCLI', [
       `  ${color.dim('Formato     ')} ${color.bold(cfg.format)}`,
-      `  ${color.dim('Calidad     ')} ${color.bold(cfg.quality)}`,
       `  ${color.dim('Destino     ')} ${color.bold(cfg.output)}`,
       `  ${color.dim('Concurrencia')} ${color.bold(String(cfg.concurrency))}`,
-      `  ${color.dim('Minimal     ')} ${color.bold(String(cfg.minimal))}`,
+      `  ${color.dim('Carátula    ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
       `  ${color.dim('Archivo     ')} ${color.dim(configPath)}`,
     ]);
     console.log(`\n${color.bold('Comandos disponibles:')}`);
@@ -368,7 +366,7 @@ async function executeConfig(tokens) {
   if (subcommand === 'reset') {
     await resetConfig();
     card(color.green('✔ Configuración restablecida a valores por defecto'), [
-      `  ${color.dim('Formato     ')} mp3 (calidad 0)`,
+      `  ${color.dim('Formato     ')} mp3`,
       `  ${color.dim('Destino     ')} ./trackcli-downloads`,
       `  ${color.dim('Concurrencia')} 3`,
     ]);

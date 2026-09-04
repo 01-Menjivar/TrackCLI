@@ -2,28 +2,35 @@ import path from 'node:path';
 
 const formats = new Set(['mp3', 'm4a', 'opus']);
 
+export function isDedicatedPlaylistUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes('youtube.com') && parsed.pathname === '/playlist' && parsed.searchParams.has('list')) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function parseOptions(tokens, userConfig = {}) {
+  const coverDefault = userConfig.cover !== false && userConfig.noCover !== true && userConfig.minimal !== true;
   const options = {
     format: userConfig.format ?? 'mp3',
-    quality: userConfig.quality ?? '0',
     output: userConfig.output ?? path.join(process.cwd(), 'trackcli-downloads'),
-    single: true,
-    minimal: userConfig.minimal ?? false,
-    thumbnail: userConfig.minimal ? false : true,
+    cover: coverDefault,
     concurrency: userConfig.concurrency ?? 3,
     overwrite: false,
+    playlist: false,
   };
   const positional = [];
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token === '-m' || token === '--minimal' || token === '--fast') {
-      options.thumbnail = false;
-      options.minimal = true;
-      continue;
-    }
-    if (token === '--no-thumbnail' || token === '--no-cover') {
-      options.thumbnail = false;
+    if (token === '-m' || token === '--no-cover' || token === '--no-thumbnail' || token === '--minimal') {
+      options.cover = false;
       continue;
     }
     if (token === '-f' || token === '--force' || token === '--overwrite') {
@@ -37,17 +44,19 @@ export function parseOptions(tokens, userConfig = {}) {
       options.concurrency = parsed;
       continue;
     }
+    if (token === '-o' || token.startsWith('-o=')) {
+      const value = token.startsWith('-o=') ? token.slice(3) : tokens[++index];
+      if (!value || value.startsWith('-')) throw new Error('Falta un valor para -o / --output.');
+      options.output = value;
+      continue;
+    }
     if (!token.startsWith('--')) {
       positional.push(token);
       continue;
     }
     const [flag, attached] = token.slice(2).split('=', 2);
-    if (flag === 'single') {
-      options.single = true;
-      continue;
-    }
     if (flag === 'playlist') {
-      options.single = false;
+      options.playlist = true;
       continue;
     }
     if (flag === 'concurrency') {
@@ -57,7 +66,7 @@ export function parseOptions(tokens, userConfig = {}) {
       options.concurrency = parsed;
       continue;
     }
-    if (flag === 'format' || flag === 'quality' || flag === 'output') {
+    if (flag === 'format' || flag === 'output') {
       const value = attached ?? tokens[++index];
       if (!value || value.startsWith('--')) throw new Error(`Falta un valor para --${flag}.`);
       options[flag] = value;
@@ -69,9 +78,12 @@ export function parseOptions(tokens, userConfig = {}) {
   if (!formats.has(options.format)) {
     throw new Error(`Formato no válido: ${options.format}. Usa: ${[...formats].join(', ')}.`);
   }
-  if (!/^(10|[0-9])$/.test(options.quality)) {
-    throw new Error('La calidad debe ser un valor entre 0 y 10 (0 es la mayor calidad VBR).');
-  }
+
+  // Propiedades de retrocompatibilidad
+  options.thumbnail = options.cover;
+  options.minimal = !options.cover;
+  options.single = !options.playlist;
+
   return { options, positional };
 }
 
@@ -84,8 +96,9 @@ export function escapeFfmpegMetadata(value) {
     .trim();
 }
 
-export function buildYtDlpArgs(url, options) {
-  const output = path.join(options.output, '%(title)s.%(ext)s');
+export function buildYtDlpArgs(url, options = {}) {
+  const output = path.join(options.output || 'trackcli-downloads', '%(title)s.%(ext)s');
+  const format = options.format || 'mp3';
   const args = [
     '--no-warnings',
     '--newline',
@@ -93,7 +106,7 @@ export function buildYtDlpArgs(url, options) {
     '--format', 'bestaudio/best',
     '--extractor-args', 'youtube:player_client=web,mweb',
     '--extract-audio',
-    '--audio-format', options.format,
+    '--audio-format', format,
     '--output', output,
     '--add-metadata',
     '--parse-metadata', '%(title)s:%(artist)s - %(track)s',
@@ -104,11 +117,20 @@ export function buildYtDlpArgs(url, options) {
   } else {
     args.push('--no-overwrites');
   }
-  if (options.format === 'mp3') args.push('--audio-quality', options.quality);
-  if (options.thumbnail !== false && ['mp3', 'm4a'].includes(options.format)) {
+  if (format === 'mp3') {
+    args.push('--audio-quality', '0');
+  }
+  const shouldEmbedCover = options.cover !== false && options.thumbnail !== false && ['mp3', 'm4a'].includes(format);
+  if (shouldEmbedCover) {
     args.push('--embed-thumbnail');
   }
-  if (options.single) args.push('--no-playlist');
+
+  const isDedicatedPlaylist = isDedicatedPlaylistUrl(url);
+  const shouldDownloadPlaylist = options.playlist === true || isDedicatedPlaylist || options.single === false;
+  if (!shouldDownloadPlaylist) {
+    args.push('--no-playlist');
+  }
+
   if (options.metadata) {
     const meta = options.metadata;
     const ffmpegArgs = [];

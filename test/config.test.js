@@ -28,13 +28,13 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
   try {
     await setConfigValue('format', 'opus');
     await setConfigValue('concurrency', '6');
-    await setConfigValue('minimal', 'true');
+    await setConfigValue('cover', 'false');
     await setConfigValue('output', '/custom/music');
 
     const config = await loadConfig();
     assert.equal(config.format, 'opus');
     assert.equal(config.concurrency, 6);
-    assert.equal(config.minimal, true);
+    assert.equal(config.cover, false);
     assert.equal(config.output, '/custom/music');
 
     // Valida errores en claves inválidas o valores incorrectos
@@ -55,22 +55,20 @@ test('parseOptions adopta valores por defecto de la configuración global y perm
   const userConfig = {
     format: 'm4a',
     output: '/var/music',
-    quality: '2',
     concurrency: 5,
-    minimal: true,
+    cover: false,
   };
 
   // Sin flags: adopta la configuración del usuario
   const { options: optsDefault } = parseOptions(['https://example.com/audio'], userConfig);
   assert.equal(optsDefault.format, 'm4a');
   assert.equal(optsDefault.output, '/var/music');
-  assert.equal(optsDefault.quality, '2');
   assert.equal(optsDefault.concurrency, 5);
-  assert.equal(optsDefault.minimal, true);
+  assert.equal(optsDefault.cover, false);
   assert.equal(optsDefault.thumbnail, false);
 
-  // Con flags: los argumentos de línea de comandos tienen precedencia
-  const { options: optsOverride } = parseOptions(['https://example.com/audio', '--format', 'opus', '-c', '8', '--output', './local'], userConfig);
+  // Con flags: los argumentos de línea de comandos tienen precedencia (-o, -c, --format)
+  const { options: optsOverride } = parseOptions(['https://example.com/audio', '--format', 'opus', '-c', '8', '-o', './local'], userConfig);
   assert.equal(optsOverride.format, 'opus');
   assert.equal(optsOverride.concurrency, 8);
   assert.equal(optsOverride.output, './local');

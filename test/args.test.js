@@ -12,17 +12,35 @@ test('usa una carpeta de descargas predecible por defecto', () => {
 
 test('interpreta opciones con valor separado o unido', () => {
   const { options, positional } = parseOptions([
-    'https://a.example', '--format=m4a', '--output', 'mi-musica', '--single', '--no-thumbnail', '-c', '5', '--overwrite',
+    'https://a.example', '--format=m4a', '-o', 'mi-musica', '-m', '-c', '5', '--overwrite',
   ]);
   assert.deepEqual(positional, ['https://a.example']);
-  assert.deepEqual(options, {
-    format: 'm4a', quality: '0', output: 'mi-musica', single: true, thumbnail: false, minimal: false, concurrency: 5, overwrite: true,
-  });
+  assert.equal(options.format, 'm4a');
+  assert.equal(options.output, 'mi-musica');
+  assert.equal(options.cover, false);
+  assert.equal(options.concurrency, 5);
+  assert.equal(options.overwrite, true);
 });
 
-test('descarga una sola pista por defecto y solo expande con --playlist', () => {
-  assert.equal(parseOptions([]).options.single, true);
-  assert.equal(parseOptions(['--playlist']).options.single, false);
+test('soporta alias -o y -o= para la carpeta de destino', () => {
+  assert.equal(parseOptions(['-o', 'carpeta1']).options.output, 'carpeta1');
+  assert.equal(parseOptions(['-o=carpeta2']).options.output, 'carpeta2');
+  assert.equal(parseOptions(['--output', 'carpeta3']).options.output, 'carpeta3');
+  assert.throws(() => parseOptions(['-o']), /Falta un valor para -o/);
+});
+
+test('detecta playlists dedicadas automáticamente y permite forzar con --playlist', () => {
+  // Video normal: incluye --no-playlist por defecto
+  const normalArgs = buildYtDlpArgs('https://www.youtube.com/watch?v=abc', parseOptions([]).options);
+  assert.ok(normalArgs.includes('--no-playlist'));
+
+  // Playlist dedicada: NO incluye --no-playlist (descarga automática sin flag)
+  const playlistArgs = buildYtDlpArgs('https://www.youtube.com/playlist?list=PL123', parseOptions([]).options);
+  assert.equal(playlistArgs.includes('--no-playlist'), false);
+
+  // Video con flag --playlist: NO incluye --no-playlist
+  const forcedArgs = buildYtDlpArgs('https://www.youtube.com/watch?v=abc&list=RD123', parseOptions(['--playlist']).options);
+  assert.equal(forcedArgs.includes('--no-playlist'), false);
 });
 
 test('valida y asigna valores de concurrencia y sobreescritura', () => {
@@ -34,47 +52,41 @@ test('valida y asigna valores de concurrencia y sobreescritura', () => {
   assert.throws(() => parseOptions(['--concurrency', '20']), /La concurrencia debe ser/);
 });
 
-test('rechaza formatos y calidades inválidas', () => {
+test('rechaza formatos inválidos y opciones eliminadas', () => {
   assert.throws(() => parseOptions(['--format', 'aac']), /Formato no válido/);
   assert.throws(() => parseOptions(['--format', 'flac']), /Formato no válido/);
   assert.throws(() => parseOptions(['--format', 'wav']), /Formato no válido/);
-  assert.throws(() => parseOptions(['--quality', '12']), /calidad debe ser/);
+  assert.throws(() => parseOptions(['--quality', '0']), /No conozco la opción --quality/);
+  assert.throws(() => parseOptions(['--single']), /No conozco la opción --single/);
 });
 
-test('genera argumentos seguros para yt-dlp', () => {
+test('genera argumentos seguros para yt-dlp con calidad óptima', () => {
   const args = buildYtDlpArgs('https://example.com/watch?v=1', {
-    format: 'mp3', quality: '2', output: '/tmp/musica', single: true,
+    format: 'mp3', output: '/tmp/musica',
   });
   assert.ok(args.includes('--extract-audio'));
   assert.ok(args.includes('--embed-thumbnail'));
   assert.ok(args.includes('--no-playlist'));
+  assert.ok(args.includes('--audio-quality'));
+  assert.equal(args[args.indexOf('--audio-quality') + 1], '0');
   assert.deepEqual(args.slice(-2), ['--', 'https://example.com/watch?v=1']);
 });
 
-test('modo minimal (-m y --minimal) desactiva la descarga de portada', () => {
-  const parsed1 = parseOptions(['https://example.com/audio', '--minimal']);
-  assert.equal(parsed1.options.minimal, true);
-  assert.equal(parsed1.options.thumbnail, false);
+test('modo -m y --no-cover desactiva la descarga de portada', () => {
+  const parsed1 = parseOptions(['https://example.com/audio', '--no-cover']);
+  assert.equal(parsed1.options.cover, false);
   const args1 = buildYtDlpArgs('https://example.com/audio', parsed1.options);
   assert.equal(args1.includes('--embed-thumbnail'), false);
 
   const parsed2 = parseOptions(['https://example.com/audio', '-m']);
-  assert.equal(parsed2.options.minimal, true);
-  assert.equal(parsed2.options.thumbnail, false);
+  assert.equal(parsed2.options.cover, false);
   const args2 = buildYtDlpArgs('https://example.com/audio', parsed2.options);
   assert.equal(args2.includes('--embed-thumbnail'), false);
 });
 
-test('--no-thumbnail omite solo la portada y no activa el modo minimal', () => {
-  const parsed = parseOptions(['https://example.com/audio', '--no-thumbnail']);
-  assert.equal(parsed.options.minimal, false);
-  assert.equal(parsed.options.thumbnail, false);
-  assert.equal(buildYtDlpArgs('https://example.com/audio', parsed.options).includes('--embed-thumbnail'), false);
-});
-
 test('no descarga componentes remotos de yt-dlp', () => {
   const args = buildYtDlpArgs('https://example.com/watch?v=1', {
-    format: 'mp3', quality: '2', output: '/tmp/musica', single: true,
+    format: 'mp3', output: '/tmp/musica',
   });
   assert.equal(args.includes('--remote-components'), false);
 });

@@ -4,10 +4,9 @@ import { dirname, join } from 'node:path';
 
 export const DEFAULT_CONFIG = {
   format: 'mp3',
-  quality: '0',
   output: join(process.cwd(), 'trackcli-downloads'),
   concurrency: 3,
-  minimal: false,
+  cover: true,
 };
 
 export function getConfigDir() {
@@ -44,7 +43,7 @@ export async function saveConfig(config) {
 }
 
 export async function setConfigValue(key, value) {
-  const validKeys = new Set(['format', 'quality', 'output', 'concurrency', 'minimal']);
+  const validKeys = new Set(['format', 'output', 'concurrency', 'cover', 'minimal']);
   if (!validKeys.has(key)) {
     throw new Error(`Clave de configuración inválida: "${key}". Claves permitidas: ${[...validKeys].join(', ')}.`);
   }
@@ -57,19 +56,16 @@ export async function setConfigValue(key, value) {
       throw new Error(`Formato no válido: ${value}. Usa: ${[...validFormats].join(', ')}.`);
     }
     config.format = value;
-  } else if (key === 'quality') {
-    if (!/^(10|[0-9])$/.test(value)) {
-      throw new Error('La calidad debe ser un valor entre 0 y 10 (0 es la mayor calidad VBR).');
-    }
-    config.quality = value;
   } else if (key === 'concurrency') {
     const parsed = parseInt(value, 10);
     if (!parsed || parsed < 1 || parsed > 16) {
       throw new Error('La concurrencia debe ser un número entre 1 y 16.');
     }
     config.concurrency = parsed;
+  } else if (key === 'cover') {
+    config.cover = value === 'true' || value === '1' || value === true;
   } else if (key === 'minimal') {
-    config.minimal = value === 'true' || value === '1' || value === true;
+    config.cover = !(value === 'true' || value === '1' || value === true);
   } else if (key === 'output') {
     config.output = String(value);
   }
