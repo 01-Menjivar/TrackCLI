@@ -101,8 +101,6 @@ async function interactiveConfig(activeConfig) {
         { id: 'mp3', label: 'mp3  · Máxima compatibilidad con cualquier reproductor' },
         { id: 'm4a', label: 'm4a  · AAC de alta calidad (ideal iPhone / Apple)' },
         { id: 'opus', label: 'opus · Original de YouTube sin recodificar (máxima fidelidad)' },
-        { id: 'flac', label: 'flac · Audio sin pérdida (lossless)' },
-        { id: 'wav', label: 'wav  · Audio PCM sin comprimir' },
       ];
       const selectedFormat = await selectItemInteractive(
         FORMAT_OPTIONS,
