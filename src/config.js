@@ -52,7 +52,7 @@ export async function setConfigValue(key, value) {
     'playlist',
   ]);
   if (!validKeys.has(key)) {
-    throw new Error(`Clave de configuración inválida: "${key}". Claves permitidas: ${[...validKeys].join(', ')}.`);
+    throw new Error(`Invalid configuration key: "${key}". Allowed keys: ${[...validKeys].join(', ')}.`);
   }
 
   const config = await loadConfig();
@@ -60,13 +60,13 @@ export async function setConfigValue(key, value) {
   if (key === 'format') {
     const validFormats = new Set(['mp3', 'm4a', 'opus']);
     if (!validFormats.has(value)) {
-      throw new Error(`Formato no válido: ${value}. Usa: ${[...validFormats].join(', ')}.`);
+      throw new Error(`Invalid format: ${value}. Use: ${[...validFormats].join(', ')}.`);
     }
     config.format = value;
   } else if (key === 'concurrency') {
     const parsed = parseInt(value, 10);
     if (!parsed || parsed < 1 || parsed > 6) {
-      throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
+      throw new Error('Concurrency must be a number between 1 and 6 (recommended: 3).');
     }
     config.concurrency = parsed;
   } else if (key === 'cover' || key === 'thumbnail') {

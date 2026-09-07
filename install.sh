@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 echo ""
-echo "  TrackCLI - Instalador Automático"
-echo "  ================================"
+echo "  TrackCLI - Automatic Installer"
+echo "  =============================="
 echo ""
 
 elevate=()
@@ -33,47 +33,47 @@ install_package() {
   fi
 }
 
-# 1. Comprobar / Instalar Node.js
+# 1. Check / Install Node.js
 if ! command -v node >/dev/null 2>&1; then
-  echo "› Instalando Node.js..."
+  echo "› Installing Node.js..."
   if ! install_package "node" "nodejs npm" "nodejs npm" "nodejs npm"; then
-    echo "✖ No se pudo instalar Node.js automáticamente. Instálalo desde https://nodejs.org/"
+    echo "✖ Could not install Node.js automatically. Please install it from https://nodejs.org/"
     exit 1
   fi
 fi
 
-# Verificar versión de Node.js
+# Verify Node.js version
 if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)' 2>/dev/null; then
-  echo "› Actualizando Node.js a versión 20 o superior..."
+  echo "› Upgrading Node.js to version 20 or higher..."
   if command -v brew >/dev/null 2>&1; then
     brew upgrade node || brew install node
   elif command -v apt-get >/dev/null 2>&1; then
-    echo "› Configurando repositorio oficial de Node.js LTS..."
+    echo "› Configuring official Node.js LTS repository..."
     curl -fsSL https://deb.nodesource.com/setup_20.x | "${elevate[@]}" bash -
     "${elevate[@]}" apt-get install -y -qq nodejs
   fi
 fi
 
-# 2. Comprobar / Instalar yt-dlp y ffmpeg
+# 2. Check / Install yt-dlp and ffmpeg
 if ! command -v yt-dlp >/dev/null 2>&1; then
-  echo "› Instalando yt-dlp..."
+  echo "› Installing yt-dlp..."
   install_package "yt-dlp" "yt-dlp" "yt-dlp" "yt-dlp" || {
-    echo "› Descargando binario independiente de yt-dlp..."
+    echo "› Downloading standalone yt-dlp binary..."
     "${elevate[@]}" curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
     "${elevate[@]}" chmod a+rx /usr/local/bin/yt-dlp
   }
 fi
 
 if ! command -v ffmpeg >/dev/null 2>&1; then
-  echo "› Instalando FFmpeg..."
+  echo "› Installing FFmpeg..."
   install_package "ffmpeg" "ffmpeg" "ffmpeg" "ffmpeg" || {
-    echo "✖ No se pudo instalar FFmpeg automáticamente. Por favor instálalo manualmente."
+    echo "✖ Could not install FFmpeg automatically. Please install it manually."
     exit 1
   }
 fi
 
-# 3. Instalar TrackCLI
-echo "› Instalando TrackCLI..."
+# 3. Install TrackCLI
+echo "› Installing TrackCLI..."
 if [[ -f "./package.json" ]] && grep -q '"name": "trackcli"' "./package.json" 2>/dev/null; then
   npm link
 else
@@ -81,11 +81,11 @@ else
 fi
 
 echo ""
-echo "  ¡Instalación completada con éxito!"
-echo "  ----------------------------------"
-echo "  Para comenzar, escribe en tu terminal:"
+echo "  Installation completed successfully!"
+echo "  ------------------------------------"
+echo "  To get started, run in your terminal:"
 echo "    trackcli"
 echo ""
-echo "  O busca una canción directamente:"
-echo "    trackcli search \"Artista - Cancion\""
+echo "  Or search for a track directly:"
+echo "    trackcli search \"Artist - Song\""
 echo ""

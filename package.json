@@ -1,7 +1,7 @@
 {
   "name": "trackcli",
   "version": "0.2.0",
-  "description": "CLI para extraer audio con selección heurística y metadatos por pista.",
+  "description": "Terminal audio extractor with heuristic studio track selection and ID3 metadata.",
   "type": "module",
   "author": "01-Menjivar",
   "license": "MIT",
@@ -22,6 +22,7 @@
     "bin",
     "src",
     "README.md",
+    "README.es.md",
     "LICENSE"
   ],
   "scripts": {
@@ -41,6 +42,12 @@
     "yt-dlp",
     "ffmpeg",
     "downloader",
-    "extractor"
+    "extractor",
+    "audio-downloader",
+    "music-downloader",
+    "spotify",
+    "apple-music",
+    "metadata",
+    "id3-tags"
   ]
 }

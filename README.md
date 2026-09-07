@@ -1,263 +1,324 @@
 # TrackCLI
 
-> Herramienta de terminal para extraer audio con metadatos oficiales y selección automática de pistas de estudio.
+<p align="center">
+  <strong>Terminal audio extractor with official metadata and automatic studio track selection.</strong>
+</p>
 
-TrackCLI automatiza la localización y descarga de audio a partir de búsquedas por nombre o enlaces de Spotify, Apple Music y YouTube. Analiza los metadatos de las plataformas de streaming para identificar y priorizar la pista oficial de estudio (*Art Track* provista por el sello discográfico), evitando videoclips con efectos de sonido o diálogos introductorios, e incrusta la carátula y etiquetas ID3 en el archivo final.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20.0-brightgreen.svg" alt="Node.js 20+"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Platform: macOS, Linux, Windows">
+  <a href="package.json"><img src="https://img.shields.io/badge/dependencies-0%20npm%20deps-orange.svg" alt="0 npm dependencies"></a>
+  <a href="https://github.com/01-Menjivar/TrackCLI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+</p>
 
----
-
-## Índice
-
-- [¿Cómo funciona?](#cómo-funciona)
-  - [1. Modos de interacción](#1-modos-de-interacción)
-  - [2. Motor de selección heurística (bajo el capó)](#2-motor-de-selección-heurística-bajo-el-capó)
-- [Formatos de audio](#formatos-de-audio)
-  - [Guía de selección según tu dispositivo](#guía-de-selección-según-tu-dispositivo)
-- [Requisitos](#requisitos)
-- [Instalación](#instalación)
-  - [Instalador automático (macOS / Linux)](#instalador-automático-macos--linux)
-  - [Instalador automático (Windows)](#instalador-automático-windows)
-  - [Instalación global con npm](#instalación-global-con-npm)
-- [Guía de Uso](#guía-de-uso)
-  - [Despacho inteligente (Smart Routing)](#despacho-inteligente-smart-routing)
-  - [Menú interactivo](#menú-interactivo)
-  - [Búsqueda por nombre](#búsqueda-por-nombre)
-  - [Descarga por enlace (Pistas y Álbumes)](#descarga-por-enlace-pistas-y-álbumes)
-  - [Descarga por lotes (archivo .txt)](#descarga-por-lotes-archivo-txt)
-  - [Configuración persistente](#configuración-persistente)
-- [Opciones de línea de comandos](#opciones-de-línea-de-comandos)
-- [Diagnóstico del sistema](#diagnóstico-del-sistema)
-- [Consideraciones legales](#consideraciones-legales)
-- [Licencia](#licencia)
+<p align="center">
+  <strong>English</strong> | <a href="README.es.md">Español</a>
+</p>
 
 ---
 
-## ¿Cómo funciona?
+## Why TrackCLI?
 
-TrackCLI opera tanto de forma interactiva como desatendida mediante dos componentes: la interfaz de usuario asistida y el motor de selección heurística.
+Most music downloaders from YouTube give you **music videos with 30-second dialogue intros, sound effects, or altered audio**. Furthermore, downloaded files often lack album covers, artist tags, or track numbers, leaving your music library messy.
 
-### 1. Modos de interacción
+**TrackCLI solves this completely:**
+1. You pass a song title or a link from **Spotify, Apple Music, or YouTube**.
+2. It fetches the official public metadata (title, artist, album, track number, year, and studio duration).
+3. An automated **heuristic scoring engine** cross-references YouTube to locate the pure studio release (*Art Track* distributed directly by record labels), heavily penalizing music videos and sketches.
+4. It extracts audio with high-performance concurrency and embeds **high-resolution cover art and complete ID3 tags**.
 
-- **Menú interactivo (`trackcli`):** Al ejecutar el comando sin argumentos, se despliega un menú navegable con las flechas del teclado (`↑` / `↓` / `Enter`) que permite acceder a todas las funciones (búsqueda, descarga por enlace/álbum, listas por lotes, configuración persistente o diagnóstico) sin forzar una búsqueda inmediata.
-  - **Confirmación inteligente:** Al buscar por nombre, el sistema analiza las fuentes y propone la mejor coincidencia oficial encontrada.
-  - **Selector interactivo:** Si la coincidencia propuesta no es la deseada, se despliega un menú en terminal navegable con las flechas del teclado (`↑` / `↓` / `Enter`), mostrando las pistas alternativas junto con su canal y duración para seleccionar la versión correcta o reintentar la búsqueda sin abandonar la sesión.
-- **Modo de comandos directos:** Permite la ejecución directa y la automatización mediante subcomandos explícitos (`search`, `download`, `batch`), flags de configuración y procesamiento concurrente.
+```text
+◆ TrackCLI v0.2.0 · audio extractor
 
-### 2. Motor de selección heurística (bajo el capó)
+╭──────────────────────────────────────────────────────────╮
+│ ✦ Spotify album detected (12 tracks)                     │
+│   Album    Random Access Memories                        │
+│   Artist   Daft Punk                                     │
+│   Year     2013                                          │
+│   Tracks   12 songs                                      │
+╰──────────────────────────────────────────────────────────╯
 
-Para garantizar que se obtenga la versión pura de estudio y no un video alterado:
+  ████████████████ 100.0% · 3.4MiB/s · [1/12] Daft Punk - Give Life Back to Music
+  ✔ [#1] Daft Punk - Give Life Back to Music.mp3
+  ████████████████ 100.0% · 4.1MiB/s · [2/12] Daft Punk - The Game of Love
+  ✔ [#2] Daft Punk - The Game of Love.mp3
 
-1. **Lectura de metadatos:** A partir de un enlace de Spotify o Apple Music, extrae las etiquetas públicas de la pista o álbum (artista, título, año, número de pista y duración oficial de estudio).
-2. **Algoritmo de puntuación (Scoring):**
-   - **Prioridad a fuentes oficiales:** Otorga la mayor puntuación a los lanzamientos provistos directamente por los sellos discográficos (*YouTube Music - Topic*).
-   - **Verificación de duración:** Contrasta la duración del candidato frente a la duración oficial de estudio (tolerancia de ±2 segundos).
-   - **Filtrado de contenido audiovisual:** Penaliza fuertemente videoclips (*Official Video*, *MV*, cortometrajes) para evitar ruidos de ambiente, efectos de sonido o diálogos iniciales ajenos a la música.
-3. **Descarga y etiquetado:** Obtiene el flujo de audio mediante `yt-dlp` y utiliza `ffmpeg` para incrustar la portada en alta resolución y los metadatos completos en el archivo final.
+╭──────────────────────────────────────────────────────────╮
+│ ✔ Download completed                                     │
+│   Tracks   12 downloaded (18.4s)                         │
+│   Output   /Music/Daft Punk - Random Access Memories     │
+╰──────────────────────────────────────────────────────────╯
+```
 
 ---
 
-## Formatos de audio
+## Highlights
 
-El audio se obtiene a partir de los flujos de mayor fidelidad disponibles en la fuente y se procesa según el formato de salida seleccionado:
+- **Studio Audio Guarantee:** Penalizes music videos, dialogue, and intro sound effects; prioritizes label-released *YouTube Music Topic* art tracks with exact duration matching.
+- **Accurate ID3 Tagging:** Embeds title, artist, album, track number, year, and high-res cover art straight into MP3 and M4A containers.
+- **Dual Interaction Modes:** Run `trackcli` without arguments for a keyboard-navigable interactive menu (`↑` / `↓` / `Enter`), or use direct CLI flags and automated pipelines.
+- **Smart CLI Routing:** Pass any URL, file (`.txt`), or song name without having to remember specific subcommands (`search`, `download`, `batch`).
+- **Concurrent Pipeline:** Worker queue with controlled concurrency and automated YouTube rate-limit mitigation (HTTP 429 backoff).
+- **Honest Audio Formats:** Pure untouched Opus (direct stream, highest fidelity), high-quality AAC/M4A (Apple ecosystem), or universal MP3 (car stereos and DJ software). No fake upscaling.
+- **Zero NPM Dependencies:** Written in 100% native Node.js ESM. Fast, auditable, and lightweight.
 
-| Formato | Parámetro | Procesamiento técnico | Compatibilidad / Uso |
+---
+
+## Table of Contents
+
+- [Why TrackCLI?](#why-trackcli)
+- [Highlights](#highlights)
+- [How It Works](#how-it-works)
+  - [1. Interaction Modes](#1-interaction-modes)
+  - [2. Heuristic Selection Engine (Under the Hood)](#2-heuristic-selection-engine-under-the-hood)
+- [Audio Formats](#audio-formats)
+  - [Device Recommendation Guide](#device-recommendation-guide)
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Automatic Installer (macOS / Linux)](#automatic-installer-macos--linux)
+  - [Automatic Installer (Windows)](#automatic-installer-windows)
+  - [Global Install via npm](#global-install-via-npm)
+- [Usage Guide](#usage-guide)
+  - [Smart CLI Routing](#smart-cli-routing)
+  - [Interactive Menu](#interactive-menu)
+  - [Search by Title / Artist](#search-by-title--artist)
+  - [Download by URL (Tracks & Albums)](#download-by-url-tracks--albums)
+  - [Batch Download (from .txt list)](#batch-download-from-txt-list)
+  - [Persistent Configuration](#persistent-configuration)
+- [CLI Options](#cli-options)
+- [System Diagnostics](#system-diagnostics)
+- [Legal Notice](#legal-notice)
+- [License](#license)
+
+---
+
+## How It Works
+
+TrackCLI operates both interactively and unattended through two main components: an assisted terminal user interface and an automated heuristic scoring engine.
+
+### 1. Interaction Modes
+
+- **Interactive Menu (`trackcli`):** Running without arguments opens a keyboard-navigable menu (`↑` / `↓` / `Enter`) allowing you to search, download URLs/albums, process batch lists, update persistent configuration, or run diagnostics without memorizing flags.
+  - **Smart Confirmation:** When searching by name, the engine identifies and proposes the best official match.
+  - **Interactive Selector:** If the top suggestion is not the intended version, an interactive terminal menu lets you inspect alternate candidates (with channel and duration) to pick the correct version or refine the search without exiting.
+- **Direct Command Mode:** Enables automation and scripted pipelines via subcommands (`search`, `download`, `batch`), flags, and concurrent queue processing.
+
+### 2. Heuristic Selection Engine (Under the Hood)
+
+To ensure you get the clean studio version rather than a modified music video:
+
+1. **Metadata Resolution:** Extracts public tags from Spotify or Apple Music URLs (artist, title, release year, track number, and official studio duration).
+2. **Scoring Algorithm:**
+   - **Official Source Priority:** Rewards tracks distributed directly by record labels (*YouTube Music - Topic* channels).
+   - **Duration Cross-Check:** Verifies candidate length against the official studio release duration (±2 seconds tolerance).
+   - **Video Content Penalty:** Heavily penalizes official music videos (*MV*, *Official Video*, short films) to filter out ambient sound effects, skits, and spoken intros.
+3. **Download & Tagging:** Fetches the audio stream via `yt-dlp` and uses `ffmpeg` to embed high-resolution artwork and accurate ID3 metadata into the output file.
+
+---
+
+## Audio Formats
+
+Audio is extracted from the highest-quality streams available at the source and processed according to the selected output format:
+
+| Format | Option | Technical Processing | Compatibility & Recommended Use |
 | :--- | :--- | :--- | :--- |
-| **Opus** | `--format opus` | **Extracción directa** sin recodificación (stream nativo Opus a ~160 kbps). | Recomendado. Preserva la calidad exacta de la fuente con el menor tamaño de archivo. |
-| **M4A / AAC** | `--format m4a` | Empaquetado o recodificación en contenedor MP4/AAC. | Compatibilidad nativa con dispositivos Apple (iPhone, Mac) e iTunes. |
-| **MP3** | `--format mp3` | Recodificación mediante FFmpeg con bitrate variable (VBR 0). | Compatibilidad universal con autorradios, equipos antiguos y software de audio. |
+| **Opus** | `--format opus` | **Direct extraction** without re-encoding (native Opus stream at ~160 kbps). | Recommended. Preserves the exact source quality with minimal file size. |
+| **M4A / AAC** | `--format m4a` | Packaged or re-encoded into MP4/AAC container. | Native compatibility with Apple devices (iPhone, iPad, Mac) and iTunes. |
+| **MP3** | `--format mp3` | Re-encoded using FFmpeg with variable bitrate (VBR 0). | Universal compatibility with car stereos, older players, and DJ software. |
 
-### Guía de selección según tu dispositivo
+### Device Recommendation Guide
 
-- **Elige MP3 si:**
-  - Vas a reproducir música en el **automóvil** mediante memorias USB o estéreos tradicionales.
-  - Usas reproductores MP3 dedicados, altavoces con lector USB o equipos de sonido antiguos.
-  - Utilizas software o controladores de **DJ** (Rekordbox, Serato, Traktor, VirtualDJ) o consolas Pioneer CDJ clásicas.
-  - *Ventaja:* Es el estándar histórico más universal; funciona en cualquier dispositivo que admita audio digital sin excepciones.
+- **Choose MP3 if:**
+  - You play music in your **car** via USB flash drives or older head units.
+  - You use dedicated MP3 players, portable USB speakers, or vintage Hi-Fi stereos.
+  - You use **DJ software or hardware** (Rekordbox, Serato, Traktor, VirtualDJ, classic Pioneer CDJs).
+  - *Advantage:* Most universal audio standard; works on virtually any digital playback device.
 
-- **Elige M4A (AAC) si:**
-  - Tu ecosistema principal es **Apple** (iPhone, iPad, Mac, Apple Watch, CarPlay o iPod).
-  - Sincronizas tu biblioteca local con la app **Apple Music** o **iTunes**.
-  - Buscas un formato moderno respaldado de forma nativa por la mayoría de teléfonos y computadoras actuales.
-  - *Ventaja:* Mayor eficiencia que MP3 y compatibilidad perfecta en dispositivos Apple.
+- **Choose M4A (AAC) if:**
+  - Your primary ecosystem is **Apple** (iPhone, iPad, Mac, Apple Watch, CarPlay, iPod).
+  - You sync your local music library into **Apple Music** or **iTunes**.
+  - You want a modern codec natively supported by modern phones and laptops.
+  - *Advantage:* Higher acoustic efficiency than MP3 and seamless Apple integration.
 
-- **Elige Opus si:**
-  - Escuchas tu música en **Android**, computadoras con **Linux/Windows** o reproductores modernos (VLC, foobar2000, Poweramp, Musicolet, Plexamp).
-  - Buscas la **máxima fidelidad acústica posible**: es el único formato que se almacena directamente del stream de origen sin pasar por una segunda compresión.
-  - Deseas ahorrar espacio de almacenamiento manteniendo la máxima claridad de sonido.
-  - *Nota:* La app nativa de Música en iOS y la mayoría de autorradios antiguos no reproducen Opus directamente (requiere reproductores de terceros como VLC).
+- **Choose Opus if:**
+  - You listen on **Android**, **Linux / Windows** PCs, or modern audio players (VLC, foobar2000, Poweramp, Musicolet, Plexamp).
+  - You want the **highest acoustic fidelity possible**: directly saved from the source stream without a second lossy re-encoding pass.
+  - You want smaller file sizes with pristine clarity.
+  - *Note:* The stock iOS Music app and legacy car stereos do not play Opus natively (requires third-party players like VLC).
 
 ---
 
-## Requisitos
+## Requirements
 
-- **Node.js** (versión 20.0 o superior)
+- **Node.js** (version 20.0 or higher)
 - **yt-dlp**
 - **FFmpeg**
 
-Comprueba la disponibilidad de las herramientas en tu sistema con:
+Check tool availability on your system anytime with:
 ```bash
 trackcli doctor
 ```
 
 ---
 
-## Instalación
+## Installation
 
-### Instalador automático (macOS / Linux)
+### Automatic Installer (macOS / Linux)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.sh | bash
 ```
 
-### Instalador automático (Windows)
+### Automatic Installer (Windows)
 ```powershell
 irm https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.ps1 | iex
 ```
 
-### Instalación global con npm
+### Global Install via npm
 ```bash
 npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
 ```
 
 ---
 
-## Guía de Uso
+## Usage Guide
 
-### Despacho inteligente (Smart Routing)
+### Smart CLI Routing
 
-TrackCLI detecta automáticamente el tipo de entrada sin necesidad de escribir subcomandos:
+TrackCLI automatically understands what you want to do based on the input argument:
 
 ```bash
-# Búsqueda y descarga directa por nombre
-trackcli "Artista - Canción"
+# Search and download by song name
+trackcli "Artist - Song"
 
-# Descarga directa por enlace de canción o álbum
-trackcli "https://open.spotify.com/album/<ID_ALBUM>" -o ~/Music
+# Download a track or full album from URL
+trackcli "https://open.spotify.com/album/<ALBUM_ID>" -o ~/Music
 
-# Procesamiento directo de un listado por lotes
-trackcli lista.txt -c 4
+# Process a batch file of songs/links
+trackcli list.txt -c 4
 ```
 
-*(Los subcomandos explícitos `search`, `download` y `batch` se mantienen disponibles para scripts y automatizaciones).*
+*(Explicit subcommands `search`, `download`, and `batch` remain available for scripts and CI/CD).*
 
-### Menú interactivo
-Inicia el entorno interactivo navegable para buscar canciones, descargar enlaces o álbumes, procesar listas, ajustar configuración o ejecutar diagnósticos sin necesidad de recordar parámetros ni forzar búsquedas inmediatas:
+### Interactive Menu
+Launch the keyboard-driven terminal menu to search, download tracks/albums, batch process, adjust persistent settings, or diagnose dependencies:
 ```bash
 trackcli
 ```
-*Navega con `↑` / `↓`, confirma con `Enter` y cancela con `Esc` o `q`.*
+*Navigate with `↑` / `↓`, confirm with `Enter`, cancel with `Esc` or `q`.*
 
-### Búsqueda por nombre
+### Search by Title / Artist
 ```bash
-# Descarga por defecto en MP3 con portada
-trackcli search "Artista - Canción"
+# Default MP3 download with cover art
+trackcli search "Artist - Song"
 
-# Descarga en Opus (sin recodificar)
-trackcli search "Artista - Canción" --format opus
+# Direct Opus download (no re-encoding)
+trackcli search "Artist - Song" --format opus
 
-# Descarga sin carátula
-trackcli search "Artista - Canción" -m
+# Fast download without cover art
+trackcli search "Artist - Song" -m
 ```
 
-### Descarga por enlace (Pistas y Álbumes)
+### Download by URL (Tracks & Albums)
 ```bash
-# Pista individual de Spotify o Apple Music (se guarda como "Artista - Canción.ext")
-trackcli download "https://open.spotify.com/track/<ID_PISTA>"
-trackcli download "https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>?i=<ID_PISTA>"
+# Single track from Spotify or Apple Music (saved as "Artist - Track.ext")
+trackcli download "https://open.spotify.com/track/<TRACK_ID>"
+trackcli download "https://music.apple.com/us/album/<ALBUM_NAME>/<ALBUM_ID>?i=<TRACK_ID>"
 
-# Enlace de YouTube
-trackcli download "https://www.youtube.com/watch?v=<ID_VIDEO>"
+# YouTube link
+trackcli download "https://www.youtube.com/watch?v=<VIDEO_ID>"
 
-# Álbum completo (se organiza en subcarpeta "Artista - Álbum/" con pistas "01 - Canción.ext")
-trackcli download "https://open.spotify.com/album/<ID_ALBUM>"
-trackcli download "https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>"
-trackcli download "https://www.youtube.com/playlist?list=<ID_PLAYLIST>"
+# Full album (organized in "Artist - Album/" folder with "01 - Track.ext")
+trackcli download "https://open.spotify.com/album/<ALBUM_ID>"
+trackcli download "https://music.apple.com/us/album/<ALBUM_NAME>/<ALBUM_ID>"
+trackcli download "https://www.youtube.com/playlist?list=<PLAYLIST_ID>"
 
-# Múltiples enlaces simultáneos en una carpeta específica
+# Multiple URLs downloaded in parallel to a specific folder
 trackcli download "<URL_1>" "<URL_2>" "<URL_3>" -o ~/Music
 ```
 
-### Descarga por lotes (archivo .txt)
-Procesa un listado de enlaces o nombres (uno por línea):
+### Batch Download (from .txt list)
+Process a list of links or song queries (one per line):
 ```bash
-trackcli batch lista.txt -o ~/Music -c 4
+trackcli batch list.txt -o ~/Music -c 4
 ```
 
-*Ejemplo de `lista.txt`:*
+*Example `list.txt`:*
 ```text
-# Enlaces o nombres de canciones
-https://open.spotify.com/track/<ID_PISTA>
-https://open.spotify.com/album/<ID_ALBUM>
-https://music.apple.com/us/album/<NOMBRE_ALBUM>/<ID_ALBUM>
-https://www.youtube.com/watch?v=<ID_VIDEO>
-Artista Uno - Canción Uno
-Artista Dos - Canción Dos
+# URLs or song titles
+https://open.spotify.com/track/<TRACK_ID>
+https://open.spotify.com/album/<ALBUM_ID>
+https://music.apple.com/us/album/<ALBUM_NAME>/<ALBUM_ID>
+https://www.youtube.com/watch?v=<VIDEO_ID>
+Artist One - Track One
+Artist Two - Track Two
 ```
 
-### Configuración persistente
-Define tus preferencias globales en `config.json` para que se apliquen automáticamente sin tener que repetir flags en cada comando (también configurable interactivamente desde `trackcli` → `Configuración`):
+### Persistent Configuration
+Define your global preferences in `config.json` so they apply automatically without passing CLI flags every time (also accessible via `trackcli` → `Settings`):
 
 ```bash
-# Ver configuración activa
+# View active configuration
 trackcli config
 
-# Formato de audio preferido (mp3, m4a u opus)
+# Set default audio format (mp3, m4a, or opus)
 trackcli config set format opus
 
-# Carpeta de destino predeterminada
+# Set default output directory
 trackcli config set output ~/Music
 
-# Concurrencia de descargas en lotes o listas (1 a 6, recomendado: 3)
+# Set concurrency level for batch/album downloads (1 to 6, recommended: 3)
 trackcli config set concurrency 4
 
-# Habilitar o deshabilitar carátula e imágenes ID3 por defecto (true | false)
+# Enable or disable cover art embedding by default (true | false)
 trackcli config set cover false
 
-# Sobrescribir archivos existentes por defecto (true | false)
+# Always overwrite existing files by default (true | false)
 trackcli config set overwrite true
 
-# Descargar playlists completas por defecto al pegar enlaces con &list= (true | false)
+# Download full playlists by default when pasting URLs with &list= (true | false)
 trackcli config set playlist true
 
-# Restablecer valores predeterminados
+# Reset settings to factory defaults
 trackcli config reset
 ```
 
 ---
 
-## Opciones de línea de comandos
+## CLI Options
 
-| Opción | Alias | Descripción | Valores | Por defecto |
+| Option | Alias | Description | Values | Default |
 | :--- | :--- | :--- | :--- | :--- |
-| `--format` | | Formato de salida del audio. | `opus`, `m4a`, `mp3` | `mp3` |
-| `--output` | `-o` | Carpeta de destino donde se guardarán los archivos. | `<directorio>` | `./trackcli-downloads` |
-| `--concurrency` | `-c` | Número de descargas simultáneas en colas y álbumes. | `1` a `6` (recomendado: `3`) | `3` |
-| `--no-cover` | `-m` | Descarga rápida de audio sin incrustar portada. | Booleano | `false` |
-| `--overwrite` | `-f` | Sobrescribe archivos si ya existen en el destino. | Booleano | `false` |
-| `--playlist` | | Fuerza la descarga de playlist completa en URLs con `&list=`. | Booleano | `false` |
+| `--format` | | Audio output format. | `opus`, `m4a`, `mp3` | `mp3` |
+| `--output` | `-o` | Output directory where files are saved. | `<directory>` | `./trackcli-downloads` |
+| `--concurrency` | `-c` | Number of concurrent downloads in queues and albums. | `1` to `6` (recommended: `3`) | `3` |
+| `--no-cover` | `-m` | Fast download without embedding cover art. | Boolean flag | `false` |
+| `--overwrite` | `-f` | Overwrite files if they already exist at destination. | Boolean flag | `false` |
+| `--playlist` | | Force downloading entire playlist on URLs with `&list=`. | Boolean flag | `false` |
 
 ---
 
-## Diagnóstico del sistema
+## System Diagnostics
 
 ```bash
-# Verificar estado y versiones de las dependencias externas
+# Check dependencies and system status
 trackcli doctor
 
-# Actualizar a la versión más reciente del repositorio
+# Update to the latest version directly from GitHub
 trackcli update
 ```
 
 ---
 
-## Consideraciones legales
+## Legal Notice
 
-- **Naturaleza del software:** TrackCLI es una herramienta de automatización local que procesa metadatos web públicos e interactúa con utilidades del sistema (`yt-dlp` y `ffmpeg`). No aloja, almacena, retransmite ni distribuye archivos de audio.
-- **Sin elusión de DRM:** La herramienta no desencripta ni vulnera sistemas de gestión de derechos digitales (DRM); no descarga flujos de audio de los servidores de Spotify ni de Apple Music.
-- **Responsabilidad de uso:** El usuario final es el único responsable del uso que dé a la herramienta, de las fuentes a las que acceda y del cumplimiento de la legislación de propiedad intelectual y los términos de servicio aplicables en su territorio.
-- **Marcas registradas:** Spotify, Apple Music y YouTube son marcas comerciales de sus respectivos titulares. TrackCLI es un proyecto independiente sin afiliación, patrocinio ni respaldo de dichas entidades.
+- **Software Scope:** TrackCLI is a local automation utility that parses public streaming web metadata and interfaces with installed system utilities (`yt-dlp` and `ffmpeg`). It does not host, store, stream, or distribute copyrighted audio files.
+- **No DRM Circumvention:** TrackCLI does not bypass or circumvent digital rights management (DRM); it does not extract audio streams from Spotify or Apple Music servers.
+- **User Responsibility:** Users are solely responsible for how they use this tool, the content they access, and compliance with copyright laws and applicable terms of service in their jurisdiction.
+- **Trademarks:** Spotify, Apple Music, and YouTube are trademarks of their respective owners. TrackCLI is an independent open-source project with no affiliation, sponsorship, or endorsement from these entities.
 
 ---
 
-## Licencia
+## License
 
-Distribuido bajo licencia [MIT](LICENSE).
+Distributed under the [MIT](LICENSE) License.

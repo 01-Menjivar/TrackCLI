@@ -237,9 +237,9 @@ export async function selectItemInteractive(
     items.forEach((item, idx) => {
       console.log(`  ${color.cyan(`${idx + 1}.`)} ${formatLabel(item)}`);
     });
-    console.log(`  ${color.cyan('0.')} ${color.dim('Cancelar')}\n`);
+    console.log(`  ${color.cyan('0.')} ${color.dim('Cancel')}\n`);
     if (askFallback) {
-      const answer = await askFallback(`Selecciona una opción [1-${items.length}/0]`, '1');
+      const answer = await askFallback(`Select an option [1-${items.length}/0]`, '1');
       const idx = parseInt(answer, 10) - 1;
       if (idx >= 0 && idx < items.length) return items[idx];
     }
@@ -261,7 +261,7 @@ export async function selectItemInteractive(
       const label = isSelected ? color.bold(color.cyan(safeLabel)) : color.dim(safeLabel);
       text += `${pointer}${label}\n`;
     });
-    text += `\n  ${color.dim('↑/↓')} ${color.dim('navegar ·')} ${color.bold('Enter')} ${color.dim('elegir ·')} ${color.bold('Esc')} ${color.dim('cancelar')}\n`;
+    text += `\n  ${color.dim('↑/↓')} ${color.dim('navigate ·')} ${color.bold('Enter')} ${color.dim('select ·')} ${color.bold('Esc')} ${color.dim('cancel')}\n`;
     return text;
   };
 

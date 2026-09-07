@@ -9,40 +9,40 @@ import { ensureRequirements, inspectRequirements } from './requirements.js';
 import { card, color, createSpinner, header, mark, selectItemInteractive, VERSION } from './ui.js';
 
 const HELP = `
-${color.bold('Uso')}
-  trackcli                                menú interactivo (búsqueda, descargas, config)
-  trackcli <canción>                      busca y descarga una pista
-  trackcli <URL...>                       descarga desde enlaces (Spotify, Apple Music, YouTube)
-  trackcli <archivo.txt>                  descarga por lotes desde un listado
-  trackcli search <canción>               búsqueda explícita
-  trackcli download <URL...>              descarga explícita desde enlaces
-  trackcli batch <archivo.txt>            descarga explícita desde archivo
-  trackcli config [set|reset]             gestiona la configuración global de TrackCLI
-  trackcli doctor                         verifica dependencias del sistema
-  trackcli update                         actualiza TrackCLI a la versión más reciente
+${color.bold('Usage')}
+  trackcli                                interactive menu (search, downloads, config)
+  trackcli <song>                         search and download a track
+  trackcli <URL...>                       download from links (Spotify, Apple Music, YouTube)
+  trackcli <file.txt>                     batch download from a list file
+  trackcli search <song>                  explicit search
+  trackcli download <URL...>              explicit download from links
+  trackcli batch <file.txt>               explicit batch download from file
+  trackcli config [set|reset]             manage TrackCLI global configuration
+  trackcli doctor                         verify system dependencies
+  trackcli update                         update TrackCLI to the latest version
 
-${color.bold('Opciones')}
-  --format <mp3|m4a|opus>                 Formato de audio (por defecto: mp3)
-  -o, --output <carpeta>                  Directorio de destino (por defecto: ./trackcli-downloads)
-  -c, --concurrency <1-6>                 Descargas simultáneas en cola/lotes (por defecto: 3)
-  -m, --no-cover                          Descarga rápida sin incrustar carátula
-  -f, --overwrite                         Sobrescribir archivos si ya existen en destino
+${color.bold('Options')}
+  --format <mp3|m4a|opus>                 Audio format (default: mp3)
+  -o, --output <directory>                Destination folder (default: ./trackcli-downloads)
+  -c, --concurrency <1-6>                 Simultaneous downloads in queues/batches (default: 3)
+  -m, --no-cover                          Fast download without embedding cover art
+  -f, --overwrite                         Overwrite files if they already exist in destination
 
-${color.bold('Configuración Global')}
-  trackcli config                         Muestra las preferencias activas
-  trackcli config set format opus         Establece el formato por defecto
-  trackcli config set output ~/Music      Establece la carpeta de destino por defecto
-  trackcli config set concurrency 4       Establece descargas simultáneas por defecto
-  trackcli config set cover false         Desactiva carátulas e imágenes por defecto
-  trackcli config set overwrite true      Sobrescribe archivos existentes por defecto
-  trackcli config set playlist true       Descarga playlists completas por defecto
-  trackcli config reset                   Restaura los valores por defecto
+${color.bold('Global Configuration')}
+  trackcli config                         Display active preferences
+  trackcli config set format opus         Set default audio format
+  trackcli config set output ~/Music      Set default output directory
+  trackcli config set concurrency 4       Set default download concurrency
+  trackcli config set cover false         Disable cover art embedding by default
+  trackcli config set overwrite true      Overwrite existing files by default
+  trackcli config set playlist true       Download entire playlists by default
+  trackcli config reset                   Reset configuration to default values
 
-${color.bold('Ejemplos')}
-  trackcli "Artista - Canción"
+${color.bold('Examples')}
+  trackcli "Artist - Song"
   trackcli "https://open.spotify.com/album/..." -o ~/Music
-  trackcli lista.txt -c 4
-  trackcli search "Artista - Canción" -m
+  trackcli list.txt -c 4
+  trackcli search "Artist - Song" -m
   trackcli download "https://www.youtube.com/watch?v=..."
 `;
 
@@ -94,32 +94,32 @@ async function interactiveConfig(activeConfig) {
     const cfg = await loadConfig();
     const configPath = getConfigPath();
     const lines = [
-      `  ${color.dim('Formato         ')} ${color.bold(cfg.format)}`,
-      `  ${color.dim('Destino         ')} ${color.bold(cfg.output)}`,
-      `  ${color.dim('Concurrencia    ')} ${color.bold(String(cfg.concurrency))}`,
-      `  ${color.dim('Carátula        ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
-      `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
-      `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
+      `  ${color.dim('Format          ')} ${color.bold(cfg.format)}`,
+      `  ${color.dim('Output          ')} ${color.bold(cfg.output)}`,
+      `  ${color.dim('Concurrency     ')} ${color.bold(String(cfg.concurrency))}`,
+      `  ${color.dim('Cover art       ')} ${color.bold(cfg.cover !== false ? 'enabled' : 'disabled')}`,
+      `  ${color.dim('Overwrite       ')} ${color.bold(cfg.overwrite ? 'enabled' : 'disabled')}`,
+      `  ${color.dim('Playlist mode   ')} ${color.bold(cfg.playlist ? 'full playlist' : 'single track only')}`,
     ];
-    lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
-    card('⚙ Configuración actual', lines);
+    lines.push(`  ${color.dim('Config file     ')} ${color.dim(configPath)}`);
+    card('⚙ Current Configuration', lines);
 
     const CONFIG_ACTIONS = [
-      { id: 'format', label: `Formato de audio (actual: ${cfg.format})` },
-      { id: 'output', label: `Carpeta de destino (actual: ${cfg.output})` },
-      { id: 'concurrency', label: `Concurrencia de descargas (actual: ${cfg.concurrency})` },
-      { id: 'cover', label: `Carátula e imágenes ID3 (actual: ${cfg.cover !== false ? 'habilitada' : 'deshabilitada'})` },
-      { id: 'overwrite', label: `Sobrescritura de archivos (actual: ${cfg.overwrite ? 'habilitada' : 'deshabilitada'})` },
-      { id: 'playlist', label: `Descarga de playlists (actual: ${cfg.playlist ? 'completa' : 'solo pista individual'})` },
-      { id: 'reset', label: 'Restablecer valores por defecto' },
-      { id: 'back', label: '← Volver al menú principal' },
+      { id: 'format', label: `Audio format (current: ${cfg.format})` },
+      { id: 'output', label: `Output directory (current: ${cfg.output})` },
+      { id: 'concurrency', label: `Download concurrency (current: ${cfg.concurrency})` },
+      { id: 'cover', label: `Cover art & ID3 tags (current: ${cfg.cover !== false ? 'enabled' : 'disabled'})` },
+      { id: 'overwrite', label: `File overwrite (current: ${cfg.overwrite ? 'enabled' : 'disabled'})` },
+      { id: 'playlist', label: `Playlist behavior (current: ${cfg.playlist ? 'full playlist' : 'single track only'})` },
+      { id: 'reset', label: 'Reset to default values' },
+      { id: 'back', label: '← Back to main menu' },
     ];
 
     const action = await selectItemInteractive(
       CONFIG_ACTIONS,
       (item) => item.label,
       ask,
-      { title: color.bold('Selecciona una opción para configurar:'), clearOnSelect: true }
+      { title: color.bold('Select an option to configure:'), clearOnSelect: true }
     );
 
     if (!action || action.id === 'back') {
@@ -128,86 +128,86 @@ async function interactiveConfig(activeConfig) {
 
     if (action.id === 'format') {
       const FORMAT_OPTIONS = [
-        { id: 'mp3', label: 'mp3  · Máxima compatibilidad con cualquier reproductor' },
-        { id: 'm4a', label: 'm4a  · AAC de alta calidad (ideal iPhone / Apple)' },
-        { id: 'opus', label: 'opus · Original de YouTube sin recodificar (máxima fidelidad)' },
+        { id: 'mp3', label: 'mp3  · Maximum compatibility with any player' },
+        { id: 'm4a', label: 'm4a  · High quality AAC (ideal for iPhone / Apple devices)' },
+        { id: 'opus', label: 'opus · Original YouTube stream without re-encoding (highest fidelity)' },
       ];
       const selectedFormat = await selectItemInteractive(
         FORMAT_OPTIONS,
         (item) => item.label,
         ask,
-        { title: color.bold('Selecciona el formato:'), clearOnSelect: true }
+        { title: color.bold('Select audio format:'), clearOnSelect: true }
       );
       if (selectedFormat) {
         await setConfigValue('format', selectedFormat.id);
-        console.log(mark('success', `Formato actualizado a: ${color.bold(selectedFormat.id)}\n`));
+        console.log(mark('success', `Format updated to: ${color.bold(selectedFormat.id)}\n`));
       }
     } else if (action.id === 'output') {
-      const newOutput = await ask('Nueva carpeta de destino', cfg.output);
+      const newOutput = await ask('New destination directory', cfg.output);
       if (newOutput === null) continue;
       if (newOutput && newOutput !== cfg.output) {
         await setConfigValue('output', newOutput);
-        console.log(mark('success', `Carpeta actualizada a: ${color.bold(newOutput)}\n`));
+        console.log(mark('success', `Output directory updated to: ${color.bold(newOutput)}\n`));
       }
     } else if (action.id === 'concurrency') {
-      const newConcurrency = await ask('Concurrencia (1 a 6 descargas simultáneas)', String(cfg.concurrency));
+      const newConcurrency = await ask('Concurrency (1 to 6 simultaneous downloads)', String(cfg.concurrency));
       if (newConcurrency === null) continue;
       if (newConcurrency) {
         try {
           await setConfigValue('concurrency', newConcurrency);
-          console.log(mark('success', `Concurrencia actualizada a: ${color.bold(newConcurrency)}\n`));
+          console.log(mark('success', `Concurrency updated to: ${color.bold(newConcurrency)}\n`));
         } catch (err) {
           console.log(mark('error', err.message + '\n'));
         }
       }
     } else if (action.id === 'cover') {
       const COVER_OPTIONS = [
-        { id: 'true', label: 'Habilitada · Incrustar portada y metadatos ID3 completos (por defecto)' },
-        { id: 'false', label: 'Deshabilitada · Descarga más rápida y ligera sin carátula (-m / --no-cover)' },
+        { id: 'true', label: 'Enabled · Embed cover art and full ID3 metadata (default)' },
+        { id: 'false', label: 'Disabled · Faster and lightweight download without cover (-m / --no-cover)' },
       ];
       const choice = await selectItemInteractive(
         COVER_OPTIONS,
         (item) => item.label,
         ask,
-        { title: color.bold('Carátula en archivos de audio:'), clearOnSelect: true }
+        { title: color.bold('Cover art in audio files:'), clearOnSelect: true }
       );
       if (choice) {
         await setConfigValue('cover', choice.id);
-        console.log(mark('success', `Carátula ${choice.id === 'true' ? 'habilitada' : 'deshabilitada'}\n`));
+        console.log(mark('success', `Cover art ${choice.id === 'true' ? 'enabled' : 'disabled'}\n`));
       }
     } else if (action.id === 'overwrite') {
       const OVERWRITE_OPTIONS = [
-        { id: 'false', label: 'Deshabilitada · Omitir descarga si el archivo ya existe (seguro, por defecto)' },
-        { id: 'true', label: 'Habilitada · Sobrescribir siempre archivos existentes (-f / --overwrite)' },
+        { id: 'false', label: 'Disabled · Skip download if file already exists (safe, default)' },
+        { id: 'true', label: 'Enabled · Always overwrite existing files (-f / --overwrite)' },
       ];
       const choice = await selectItemInteractive(
         OVERWRITE_OPTIONS,
         (item) => item.label,
         ask,
-        { title: color.bold('Sobrescritura de archivos:'), clearOnSelect: true }
+        { title: color.bold('File overwrite:'), clearOnSelect: true }
       );
       if (choice) {
         await setConfigValue('overwrite', choice.id);
-        console.log(mark('success', `Sobrescritura ${choice.id === 'true' ? 'habilitada' : 'deshabilitada'}\n`));
+        console.log(mark('success', `File overwrite ${choice.id === 'true' ? 'enabled' : 'disabled'}\n`));
       }
     } else if (action.id === 'playlist') {
       const PLAYLIST_OPTIONS = [
-        { id: 'false', label: 'Solo pista individual · Ignorar list= en videos individuales (por defecto)' },
-        { id: 'true', label: 'Descargar playlist completa · Descargar todos los videos de la lista (--playlist)' },
+        { id: 'false', label: 'Single track only · Ignore list= on individual videos (default)' },
+        { id: 'true', label: 'Download entire playlist · Download all videos in the playlist (--playlist)' },
       ];
       const choice = await selectItemInteractive(
         PLAYLIST_OPTIONS,
         (item) => item.label,
         ask,
-        { title: color.bold('Comportamiento con playlists:'), clearOnSelect: true }
+        { title: color.bold('Playlist behavior:'), clearOnSelect: true }
       );
       if (choice) {
         await setConfigValue('playlist', choice.id);
-        console.log(mark('success', `Comportamiento de playlist: ${choice.id === 'true' ? 'descargar completa' : 'solo pista individual'}\n`));
+        console.log(mark('success', `Playlist behavior: ${choice.id === 'true' ? 'download entire playlist' : 'single track only'}\n`));
       }
     } else if (action.id === 'reset') {
       await resetConfig();
-      console.log(mark('success', 'Configuración restablecida a los valores por defecto.\n'));
+      console.log(mark('success', 'Configuration reset to default values.\n'));
     }
   }
 }
@@ -222,12 +222,12 @@ async function interactiveMenu(userConfig = {}) {
   let activeConfig = { ...userConfig };
 
   const MENU_OPTIONS = [
-    { id: 'search', label: 'Buscar y descargar canción' },
-    { id: 'download', label: 'Descargar enlace o álbum (URL)' },
-    { id: 'batch', label: 'Descargar desde un listado (.txt)' },
-    { id: 'config', label: 'Configuración' },
-    { id: 'doctor', label: 'Diagnóstico del sistema' },
-    { id: 'exit', label: 'Salir' },
+    { id: 'search', label: 'Search and download track' },
+    { id: 'download', label: 'Download link or album (URL)' },
+    { id: 'batch', label: 'Download from list file (.txt)' },
+    { id: 'config', label: 'Settings & Configuration' },
+    { id: 'doctor', label: 'System Diagnostics' },
+    { id: 'exit', label: 'Exit' },
   ];
 
   while (true) {
@@ -235,16 +235,16 @@ async function interactiveMenu(userConfig = {}) {
       MENU_OPTIONS,
       (item) => item.label,
       ask,
-      { title: color.bold('¿Qué deseas hacer?'), clearOnSelect: true }
+      { title: color.bold('What would you like to do?'), clearOnSelect: true }
     );
 
     if (!selected || selected.id === 'exit') {
-      console.log(color.dim('\n✦ ¡Hasta luego!\n'));
+      console.log(color.dim('\n✦ Goodbye!\n'));
       break;
     }
 
     if (selected.id === 'search') {
-      const query = await ask('Artista - Canción');
+      const query = await ask('Artist - Song');
       if (query === null) continue;
       if (query) {
         console.log('');
@@ -257,7 +257,7 @@ async function interactiveMenu(userConfig = {}) {
       }
       console.log('');
     } else if (selected.id === 'download') {
-      const url = await ask('Enlace de YouTube, Spotify o Apple Music');
+      const url = await ask('YouTube, Spotify, or Apple Music link');
       if (url === null) continue;
       if (url) {
         console.log('');
@@ -270,7 +270,7 @@ async function interactiveMenu(userConfig = {}) {
       }
       console.log('');
     } else if (selected.id === 'batch') {
-      const filePath = await ask('Ruta del listado (.txt)');
+      const filePath = await ask('Path to list file (.txt)');
       if (filePath === null) continue;
       if (filePath) {
         console.log('');
@@ -293,33 +293,33 @@ async function interactiveMenu(userConfig = {}) {
 
 async function executeDownload(tokens, userConfig = {}) {
   const { options, positional } = parseOptions(tokens, userConfig);
-  if (!positional.length) throw new Error('Indica al menos un enlace. Ejemplo: trackcli download <URL>');
+  if (!positional.length) throw new Error('Specify at least one link. Example: trackcli download <URL>');
   await ensureRequirements();
 
   if (positional.length === 1) {
     const url = positional[0];
     const jobs = [];
     if (isStreamingUrl(url)) {
-      const spinner = createSpinner(`Extrayendo información de ${color.bold(url)}…`);
+      const spinner = createSpinner(`Extracting information from ${color.bold(url)}…`);
       const meta = await resolveStreamingMetadata(url);
       spinner.stop();
       if (!meta) {
-        throw new Error(`No pude leer los metadatos de ${url}. Comprueba que sea un enlace público.`);
+        throw new Error(`Could not read metadata from ${url}. Make sure it is a public link.`);
       }
 
       if (meta.isAlbum && meta.tracks?.length) {
-        card(`✦ Álbum de ${meta.service} detectado (${meta.tracks.length} pistas)`, [
-          `  ${color.dim('Álbum   ')} ${color.bold(meta.title)}`,
-          `  ${color.dim('Artista ')} ${meta.artist || color.dim('(desconocido)')}`,
-          `  ${color.dim('Año     ')} ${meta.year || color.dim('(desconocido)')}`,
-          `  ${color.dim('Pistas  ')} ${meta.tracks.length} canciones`,
+        card(`✦ ${meta.service} album detected (${meta.tracks.length} tracks)`, [
+          `  ${color.dim('Album   ')} ${color.bold(meta.title)}`,
+          `  ${color.dim('Artist  ')} ${meta.artist || color.dim('(unknown)')}`,
+          `  ${color.dim('Year    ')} ${meta.year || color.dim('(unknown)')}`,
+          `  ${color.dim('Tracks  ')} ${meta.tracks.length} songs`,
         ]);
         console.log('');
 
-        const albumSpinner = createSpinner(`Localizando audio para ${meta.tracks.length} canciones en paralelo…`);
+        const albumSpinner = createSpinner(`Locating audio for ${meta.tracks.length} songs in parallel…`);
         const resolved = await resolveBatchEntries(meta.tracks.map((t) => t.query), options, (done, total, job) => {
           if (job?.display) {
-            albumSpinner.update(`Analizando (${done}/${total}): ${job.display}`);
+            albumSpinner.update(`Analyzing (${done}/${total}): ${job.display}`);
           }
         });
         albumSpinner.stop();
@@ -339,10 +339,10 @@ async function executeDownload(tokens, userConfig = {}) {
         }
       } else {
         if (!meta.query) {
-          throw new Error(`No pude leer los metadatos de ${url}. Comprueba que sea un enlace público de una pista.`);
+          throw new Error(`Could not read metadata from ${url}. Make sure it is a public track link.`);
         }
-        console.log(mark('info', `${meta.service}: ${color.bold(meta.title)} · ${meta.artist || color.dim('(desconocido)')}${meta.album ? color.dim(` [${meta.album}]`) : ''}\n`));
-        const songSpinner = createSpinner(`Localizando audio oficial de ${color.bold(meta.title)}…`);
+        console.log(mark('info', `${meta.service}: ${color.bold(meta.title)} · ${meta.artist || color.dim('(unknown)')}${meta.album ? color.dim(` [${meta.album}]`) : ''}\n`));
+        const songSpinner = createSpinner(`Locating official audio for ${color.bold(meta.title)}…`);
         try {
           const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
           jobs.push({ url: song.url, metadata: meta });
@@ -359,7 +359,7 @@ async function executeDownload(tokens, userConfig = {}) {
   }
 
   // Multiple URLs in download command: resolve in parallel
-  const spinner = createSpinner(`Analizando ${positional.length} enlaces en paralelo…`);
+  const spinner = createSpinner(`Analyzing ${positional.length} links in parallel…`);
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
   const rawJobs = await mapConcurrent(positional, concurrency, async (url) => {
     if (isStreamingUrl(url)) {
@@ -390,14 +390,14 @@ async function executeDownload(tokens, userConfig = {}) {
 }
 
 async function executeBatch(filename, tokens, userConfig = {}) {
-  if (!filename || filename.startsWith('--')) throw new Error('Indica el archivo .txt. Ejemplo: trackcli batch lista.txt');
+  if (!filename || filename.startsWith('--')) throw new Error('Specify the .txt file. Example: trackcli batch list.txt');
   const { options, positional } = parseOptions(tokens, userConfig);
-  if (positional.length) throw new Error('El nombre del archivo debe ir inmediatamente después de batch.');
+  if (positional.length) throw new Error('The file name must immediately follow batch.');
   const entries = await readQueue(filename);
-  console.log(mark('info', `${color.bold(entries.length)} elemento${entries.length === 1 ? '' : 's'} en ${color.dim(filename)} (concurrencia: ${options.concurrency})\n`));
+  console.log(mark('info', `${color.bold(entries.length)} item${entries.length === 1 ? '' : 's'} in ${color.dim(filename)} (concurrency: ${options.concurrency})\n`));
   await ensureRequirements();
 
-  console.log(mark('info', `Destino: ${color.dim(options.output)}\n`));
+  console.log(mark('info', `Destination: ${color.dim(options.output)}\n`));
   const startTime = Date.now();
   const results = await runBatchPipeline(entries, options);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -405,26 +405,26 @@ async function executeBatch(filename, tokens, userConfig = {}) {
   const failed = results.length - successful;
 
   if (!results.length) {
-    throw new Error('No encontré entradas descargables en la lista. Comprueba los enlaces públicos de Spotify o Apple Music.');
+    throw new Error('No downloadable entries found in the list. Check your Spotify or Apple Music links.');
   }
 
   console.log('');
   if (successful === results.length) {
-    card(color.green('✔ Descarga completada'), [
-      `  ${color.dim('Pistas  ')} ${color.green(`${successful} descargada${successful === 1 ? '' : 's'}`)} ${color.dim(`(${elapsed}s)`)}`,
-      `  ${color.dim('Destino ')} ${options.output}`,
+    card(color.green('✔ Download completed'), [
+      `  ${color.dim('Tracks  ')} ${color.green(`${successful} downloaded`)} ${color.dim(`(${elapsed}s)`)}`,
+      `  ${color.dim('Output  ')} ${options.output}`,
     ]);
   } else {
     const failedLines = results
       .filter((item) => !item.ok)
-      .map((item) => `  ${color.red('✖')} ${color.bold(item.display || item.title || item.url || 'Pista')}: ${color.dim(item.error || 'Fallo en descarga')}`);
-    card(color.yellow('▲ Descarga con advertencias'), [
-      `  ${color.dim('Pistas  ')} ${color.green(`${successful} completada${successful === 1 ? '' : 's'}`)} · ${color.red(`${failed} con error`)} ${color.dim(`(${elapsed}s)`)}`,
-      `  ${color.dim('Destino ')} ${options.output}`,
+      .map((item) => `  ${color.red('✖')} ${color.bold(item.display || item.title || item.url || 'Track')}: ${color.dim(item.error || 'Download failed')}`);
+    card(color.yellow('▲ Download with warnings'), [
+      `  ${color.dim('Tracks  ')} ${color.green(`${successful} completed`)} · ${color.red(`${failed} failed`)} ${color.dim(`(${elapsed}s)`)}`,
+      `  ${color.dim('Output  ')} ${options.output}`,
       '',
-      color.bold('Pistas omitidas o con error:'),
+      color.bold('Skipped or failed tracks:'),
       ...failedLines.slice(0, 10),
-      ...(failedLines.length > 10 ? [`  ${color.dim(`... y ${failedLines.length - 10} más`)}`] : []),
+      ...(failedLines.length > 10 ? [`  ${color.dim(`... and ${failedLines.length - 10} more`)}`] : []),
     ]);
   }
   if (failed) process.exitCode = 1;
@@ -437,34 +437,34 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
   let query = initialQuery;
 
   while (query) {
-    const spinner = createSpinner(`Buscando ${color.bold(query)}…`);
+    const spinner = createSpinner(`Searching for ${color.bold(query)}…`);
     let candidates = [];
     try {
       candidates = await searchSongs(query, 5);
       spinner.stop();
     } catch {
-      spinner.fail(`No se encontraron resultados para: ${query}`);
-      const retryQuery = await ask('Ingresa otro término de búsqueda (o Enter para cancelar)');
+      spinner.fail(`No results found for: ${query}`);
+      const retryQuery = await ask('Enter another search query (or Enter to cancel)');
       if (!retryQuery) return;
       query = retryQuery;
       continue;
     }
 
     if (!candidates.length) {
-      console.log(mark('warning', 'No se encontraron resultados de audio.'));
-      const retryQuery = await ask('Ingresa otro término de búsqueda (o Enter para cancelar)');
+      console.log(mark('warning', 'No audio results found.'));
+      const retryQuery = await ask('Enter another search query (or Enter to cancel)');
       if (!retryQuery) return;
       query = retryQuery;
       continue;
     }
 
     const best = candidates[0];
-    const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
+    const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · no cover') : '';
     const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
-    console.log(mark('info', `Encontrada: ${color.bold(best.title)} ${color.dim(`[${best.duration}] · ${best.uploader}`)} ${color.dim(`(${formatTag})`)}`));
+    console.log(mark('info', `Found: ${color.bold(best.title)} ${color.dim(`[${best.duration}] · ${best.uploader}`)} ${color.dim(`(${formatTag})`)}`));
 
-    const confirmRaw = await ask('¿Es esta canción? [Y/n]', 'y');
+    const confirmRaw = await ask('Is this the track? [Y/n]', 'y');
     if (confirmRaw === null) return;
     const confirm = confirmRaw.toLowerCase();
 
@@ -477,18 +477,18 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
       candidates,
       (c) => `${c.title} ${color.dim(`[${c.duration}] · ${c.uploader}`)}`,
       ask,
-      { title: color.bold('Selecciona una opción:'), clearOnSelect: true }
+      { title: color.bold('Select an option:'), clearOnSelect: true }
     );
 
     if (selected) {
-      console.log(mark('info', `Seleccionada: ${color.bold(selected.title)} ${color.dim(`[${selected.duration}] · ${selected.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
+      console.log(mark('info', `Selected: ${color.bold(selected.title)} ${color.dim(`[${selected.duration}] · ${selected.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
       await executeQueue([selected.url], options, true);
       return;
     }
 
-    const retryQuery = await ask('Ingresa otro término de búsqueda (o Enter para cancelar)');
+    const retryQuery = await ask('Enter another search query (or Enter to cancel)');
     if (!retryQuery) {
-      console.log(color.dim('Descarga cancelada.'));
+      console.log(color.dim('Download cancelled.'));
       return;
     }
     query = retryQuery;
@@ -498,23 +498,23 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
 async function executeSearch(tokens, userConfig = {}) {
   const { options, positional } = parseOptions(tokens, userConfig);
   const query = positional.join(' ').trim();
-  if (!query) throw new Error('Indica el nombre de la canción. Ejemplo: trackcli search "Artista - Canción"');
+  if (!query) throw new Error('Specify the track name. Example: trackcli search "Artist - Song"');
   await ensureRequirements();
 
-  const spinner = createSpinner(`Buscando ${color.bold(query)}…`);
+  const spinner = createSpinner(`Searching for ${color.bold(query)}…`);
   let song;
   try {
     song = await findBestAudioSong(query);
     spinner.stop();
   } catch (err) {
-    spinner.fail(`No se encontraron resultados para: ${query}`);
+    spinner.fail(`No results found for: ${query}`);
     throw err;
   }
 
-  const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · sin portada') : '';
+  const coverNotice = (options.cover === false || options.thumbnail === false) ? color.dim(' · no cover') : '';
   const formatTag = `${options.format.toUpperCase()}${coverNotice}`;
 
-  console.log(mark('info', `Encontrada: ${color.bold(song.title)} ${color.dim(`[${song.duration}] · ${song.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
+  console.log(mark('info', `Found: ${color.bold(song.title)} ${color.dim(`[${song.duration}] · ${song.uploader}`)} ${color.dim(`(${formatTag})`)}\n`));
   await executeQueue([song.url], options, true);
 }
 
@@ -526,25 +526,25 @@ async function executeConfig(tokens) {
     const cfg = await loadConfig();
     const configPath = getConfigPath();
     const lines = [
-      `  ${color.dim('Formato         ')} ${color.bold(cfg.format)}`,
-      `  ${color.dim('Destino         ')} ${color.bold(cfg.output)}`,
-      `  ${color.dim('Concurrencia    ')} ${color.bold(String(cfg.concurrency))}`,
-      `  ${color.dim('Carátula        ')} ${color.bold(cfg.cover !== false ? 'habilitada' : 'deshabilitada')}`,
-      `  ${color.dim('Sobrescritura   ')} ${color.bold(cfg.overwrite ? 'habilitada' : 'deshabilitada')}`,
-      `  ${color.dim('Descarga playlist')} ${color.bold(cfg.playlist ? 'completa' : 'solo pista individual')}`,
+      `  ${color.dim('Format          ')} ${color.bold(cfg.format)}`,
+      `  ${color.dim('Output          ')} ${color.bold(cfg.output)}`,
+      `  ${color.dim('Concurrency     ')} ${color.bold(String(cfg.concurrency))}`,
+      `  ${color.dim('Cover art       ')} ${color.bold(cfg.cover !== false ? 'enabled' : 'disabled')}`,
+      `  ${color.dim('Overwrite       ')} ${color.bold(cfg.overwrite ? 'enabled' : 'disabled')}`,
+      `  ${color.dim('Playlist mode   ')} ${color.bold(cfg.playlist ? 'full playlist' : 'single track only')}`,
     ];
-    lines.push(`  ${color.dim('Archivo         ')} ${color.dim(configPath)}`);
-    card('⚙ Configuración de TrackCLI', lines);
-    console.log(`\n${color.bold('Comandos disponibles:')}`);
-    console.log(`  ${color.cyan('trackcli config set <clave> <valor>')}`);
+    lines.push(`  ${color.dim('Config file     ')} ${color.dim(configPath)}`);
+    card('⚙ TrackCLI Configuration', lines);
+    console.log(`\n${color.bold('Available commands:')}`);
+    console.log(`  ${color.cyan('trackcli config set <key> <value>')}`);
     console.log(`    ${color.dim('format          ')} mp3 | m4a | opus`);
     console.log(`    ${color.dim('output          ')} ~/Music`);
-    console.log(`    ${color.dim('concurrency     ')} 1 a 6`);
+    console.log(`    ${color.dim('concurrency     ')} 1 to 6`);
     console.log(`    ${color.dim('cover           ')} true | false`);
     console.log(`    ${color.dim('overwrite       ')} true | false`);
     console.log(`    ${color.dim('playlist        ')} true | false`);
-    console.log(`  ${color.cyan('trackcli config reset')}               ${color.dim('Restaura los valores por defecto')}`);
-    console.log(`  ${color.cyan('trackcli config path')}                ${color.dim('Muestra la ruta del archivo config.json')}\n`);
+    console.log(`  ${color.cyan('trackcli config reset')}               ${color.dim('Reset configuration to default values')}`);
+    console.log(`  ${color.cyan('trackcli config path')}                ${color.dim('Display path to config.json file')}\n`);
     return;
   }
 
@@ -555,27 +555,27 @@ async function executeConfig(tokens) {
 
   if (subcommand === 'reset') {
     await resetConfig();
-    console.log(mark('success', 'Configuración restablecida a los valores por defecto.\n'));
+    console.log(mark('success', 'Configuration reset to default values.\n'));
     return;
   }
 
   if (subcommand === 'set') {
     if (!key || value === undefined) {
-      throw new Error('Uso: trackcli config set <clave> <valor>. Ejemplo: trackcli config set format m4a');
+      throw new Error('Usage: trackcli config set <key> <value>. Example: trackcli config set format m4a');
     }
     const updated = await setConfigValue(key, value);
-    console.log(mark('success', `Configuración actualizada: ${color.bold(key)} = ${color.bold(String(updated[key]))}\n`));
+    console.log(mark('success', `Configuration updated: ${color.bold(key)} = ${color.bold(String(updated[key]))}\n`));
     return;
   }
 
-  throw new Error(`Subcomando desconocido: "${subcommand}". Usa "trackcli config".`);
+  throw new Error(`Unknown subcommand: "${subcommand}". Run "trackcli config".`);
 }
 
 async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
   if (!requirementsAlreadyChecked) await ensureRequirements();
-  if (!urls.length) throw new Error('No hay pistas para descargar.');
+  if (!urls.length) throw new Error('No tracks to download.');
   if (urls.length > 1) {
-    console.log(mark('info', `Destino: ${color.dim(options.output)}\n`));
+    console.log(mark('info', `Destination: ${color.dim(options.output)}\n`));
   }
   const startTime = Date.now();
   const results = await runQueue(urls, options);
@@ -586,24 +586,24 @@ async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
   console.log('');
   if (successful === results.length) {
     if (urls.length === 1) {
-      console.log(mark('success', `${color.green('Descarga completada')} ${color.dim(`(${elapsed}s) →`)} ${color.dim(options.output)}\n`));
+      console.log(mark('success', `${color.green('Download completed')} ${color.dim(`(${elapsed}s) →`)} ${color.dim(options.output)}\n`));
     } else {
-      card(color.green('✔ Descarga completada'), [
-        `  ${color.dim('Pistas  ')} ${color.green(`${successful} descargada${successful === 1 ? '' : 's'}`)} ${color.dim(`(${elapsed}s)`)}`,
-        `  ${color.dim('Destino ')} ${options.output}`,
+      card(color.green('✔ Download completed'), [
+        `  ${color.dim('Tracks  ')} ${color.green(`${successful} downloaded`)} ${color.dim(`(${elapsed}s)`)}`,
+        `  ${color.dim('Output  ')} ${options.output}`,
       ]);
     }
   } else {
     const failedLines = results
       .filter((item) => !item.ok)
-      .map((item) => `  ${color.red('✖')} ${color.bold(item.title || item.url || 'Pista')}: ${color.dim(item.error || 'Fallo en descarga')}`);
-    card(color.yellow('▲ Descarga con advertencias'), [
-      `  ${color.dim('Pistas  ')} ${color.green(`${successful} completada${successful === 1 ? '' : 's'}`)} · ${color.red(`${failed} con error`)} ${color.dim(`(${elapsed}s)`)}`,
-      `  ${color.dim('Destino ')} ${options.output}`,
+      .map((item) => `  ${color.red('✖')} ${color.bold(item.title || item.url || 'Track')}: ${color.dim(item.error || 'Download failed')}`);
+    card(color.yellow('▲ Download with warnings'), [
+      `  ${color.dim('Tracks  ')} ${color.green(`${successful} completed`)} · ${color.red(`${failed} failed`)} ${color.dim(`(${elapsed}s)`)}`,
+      `  ${color.dim('Output  ')} ${options.output}`,
       '',
-      color.bold('Pistas omitidas o con error:'),
+      color.bold('Skipped or failed tracks:'),
       ...failedLines.slice(0, 10),
-      ...(failedLines.length > 10 ? [`  ${color.dim(`... y ${failedLines.length - 10} más`)}`] : []),
+      ...(failedLines.length > 10 ? [`  ${color.dim(`... and ${failedLines.length - 10} more`)}`] : []),
     ]);
   }
   if (failed) process.exitCode = 1;
@@ -611,18 +611,18 @@ async function executeQueue(urls, options, requirementsAlreadyChecked = false) {
 
 async function doctor() {
   header();
-  const spinner = createSpinner('Verificando dependencias…');
+  const spinner = createSpinner('Checking dependencies…');
   const status = await inspectRequirements();
   spinner.stop();
 
-  card('◆ Diagnóstico del sistema', [
-    `  ${color.dim('yt-dlp  ')} ${status.ytDlp ? mark('success', status.ytDlp) : mark('error', 'no encontrado')}`,
-    `  ${color.dim('ffmpeg  ')} ${status.ffmpeg ? mark('success', status.ffmpeg) : mark('error', 'no encontrado')}`,
+  card('◆ System Diagnostics', [
+    `  ${color.dim('yt-dlp  ')} ${status.ytDlp ? mark('success', status.ytDlp) : mark('error', 'not found')}`,
+    `  ${color.dim('ffmpeg  ')} ${status.ffmpeg ? mark('success', status.ffmpeg) : mark('error', 'not found')}`,
     `  ${color.dim('node    ')} ${mark('success', process.version)}`,
   ]);
 
   if (!status.ytDlp || !status.ffmpeg) {
-    console.log(`\n${color.bold('Instalación:')}`);
+    console.log(`\n${color.bold('Installation:')}`);
     if (process.platform === 'darwin') console.log(`  ${color.cyan('brew install yt-dlp ffmpeg')}`);
     else if (process.platform === 'win32') console.log(`  ${color.cyan('winget install yt-dlp.yt-dlp Gyan.FFmpeg')}`);
     else console.log(`  ${color.cyan('sudo apt install yt-dlp ffmpeg')}`);
@@ -631,7 +631,7 @@ async function doctor() {
 
 async function update() {
   header();
-  const spinner = createSpinner('Actualizando TrackCLI directamente desde GitHub…');
+  const spinner = createSpinner('Updating TrackCLI directly from GitHub…');
 
   const child = spawnTracked('npm', ['install', '--global', 'https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz'], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -650,14 +650,14 @@ async function update() {
   spinner.stop();
 
   if (exitCode === 0) {
-    card(color.green('✔ TrackCLI actualizado con éxito'), [
-      `  ${color.dim('Estado ')} ${color.green('Última versión instalada')}`,
-      `  ${color.dim('Origen ')} GitHub (01-Menjivar/TrackCLI)`,
+    card(color.green('✔ TrackCLI updated successfully'), [
+      `  ${color.dim('Status ')} ${color.green('Latest version installed')}`,
+      `  ${color.dim('Source ')} GitHub (01-Menjivar/TrackCLI)`,
     ]);
   } else {
-    card(color.yellow('▲ No se pudo completar la actualización automática'), [
-      `  ${color.dim('Detalle')} ${errorOut.trim() || 'Error de permisos o conexión'}`,
-      `  ${color.dim('Solución')}`,
+    card(color.yellow('▲ Could not complete automatic update'), [
+      `  ${color.dim('Detail ')} ${errorOut.trim() || 'Permission or network error'}`,
+      `  ${color.dim('Action ')}`,
       `  ${color.cyan('npm install -g https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz')}`,
     ]);
     process.exitCode = 1;
@@ -711,5 +711,5 @@ export async function run(argv) {
     return executeSearch(argv, userConfig);
   }
 
-  throw new Error(`Comando no reconocido: "${command}". Usa "trackcli help".`);
+  throw new Error(`Unrecognized command: "${command}". Run "trackcli help".`);
 }

@@ -26,7 +26,7 @@ test('soporta alias -o y -o= para la carpeta de destino', () => {
   assert.equal(parseOptions(['-o', 'carpeta1']).options.output, 'carpeta1');
   assert.equal(parseOptions(['-o=carpeta2']).options.output, 'carpeta2');
   assert.equal(parseOptions(['--output', 'carpeta3']).options.output, 'carpeta3');
-  assert.throws(() => parseOptions(['-o']), /Falta un valor para -o/);
+  assert.throws(() => parseOptions(['-o']), /Missing value for -o/);
 });
 
 test('detecta playlists dedicadas automáticamente y permite forzar con --playlist', () => {
@@ -48,17 +48,17 @@ test('valida y asigna valores de concurrencia y sobreescritura', () => {
   assert.equal(parseOptions(['-c', '6']).options.concurrency, 6);
   assert.equal(parseOptions(['-f']).options.overwrite, true);
   assert.equal(parseOptions(['--force']).options.overwrite, true);
-  assert.throws(() => parseOptions(['--concurrency', '0']), /La concurrencia debe ser/);
-  assert.throws(() => parseOptions(['--concurrency', '7']), /La concurrencia debe ser/);
-  assert.throws(() => parseOptions(['--concurrency', '20']), /La concurrencia debe ser/);
+  assert.throws(() => parseOptions(['--concurrency', '0']), /Concurrency must be/);
+  assert.throws(() => parseOptions(['--concurrency', '7']), /Concurrency must be/);
+  assert.throws(() => parseOptions(['--concurrency', '20']), /Concurrency must be/);
 });
 
 test('rechaza formatos inválidos y opciones eliminadas', () => {
-  assert.throws(() => parseOptions(['--format', 'aac']), /Formato no válido/);
-  assert.throws(() => parseOptions(['--format', 'flac']), /Formato no válido/);
-  assert.throws(() => parseOptions(['--format', 'wav']), /Formato no válido/);
-  assert.throws(() => parseOptions(['--quality', '0']), /No conozco la opción --quality/);
-  assert.throws(() => parseOptions(['--single']), /No conozco la opción --single/);
+  assert.throws(() => parseOptions(['--format', 'aac']), /Invalid format/);
+  assert.throws(() => parseOptions(['--format', 'flac']), /Invalid format/);
+  assert.throws(() => parseOptions(['--format', 'wav']), /Invalid format/);
+  assert.throws(() => parseOptions(['--quality', '0']), /Unknown option --quality/);
+  assert.throws(() => parseOptions(['--single']), /Unknown option --single/);
 });
 
 test('genera argumentos seguros para yt-dlp con calidad óptima', () => {

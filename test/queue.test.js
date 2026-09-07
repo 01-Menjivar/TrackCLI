@@ -34,7 +34,7 @@ test('rechaza listas sin enlaces', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
   const filename = join(directory, 'vacia.txt');
   await writeFile(filename, '# nada\n\n');
-  await assert.rejects(readQueue(filename), /no tiene enlaces/);
+  await assert.rejects(readQueue(filename), /contains no links/);
 });
 
 test('ejecuta yt-dlp, interpreta el progreso y crea el destino', async () => {
@@ -448,6 +448,6 @@ test('runBatchPipeline reporta transparentemente fallas de resolución en lugar 
 
   assert.equal(results.length, 1);
   assert.equal(results[0].ok, false);
-  assert.ok(results[0].error.includes('No se pudieron extraer metadatos') || results[0].error.includes('Error'));
+  assert.ok(results[0].error.includes('Could not extract metadata') || results[0].error.includes('No se pudieron extraer metadatos') || results[0].error.includes('Error'));
 });
 

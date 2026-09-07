@@ -13,8 +13,8 @@ test('Smart CLI Routing: detecta y procesa ayuda y versión', async () => {
 
     logOut = '';
     await run(['--help']);
-    assert.ok(logOut.includes('Uso'));
-    assert.ok(logOut.includes('trackcli <canción>'));
+    assert.ok(logOut.includes('Usage'));
+    assert.ok(logOut.includes('trackcli <song>'));
   } finally {
     console.log = originalLog;
   }
@@ -23,12 +23,12 @@ test('Smart CLI Routing: detecta y procesa ayuda y versión', async () => {
 test('Smart CLI Routing: rechaza comandos y banderas inválidas', async () => {
   await assert.rejects(
     () => run(['--opcion-invalida']),
-    /Comando no reconocido/
+    /Unrecognized command/
   );
 
   await assert.rejects(
     () => run(['Artista - Canción', '--opcion-invalida']),
-    /No conozco la opción --opcion-invalida/
+    /Unknown option --opcion-invalida/
   );
 });
 
@@ -40,7 +40,7 @@ test('Smart CLI Routing: sin argumentos en entorno no-TTY muestra ayuda', async 
   try {
     await run([]);
     assert.ok(logOut.includes('TrackCLI'));
-    assert.ok(logOut.includes('menú interactivo'));
+    assert.ok(logOut.includes('interactive menu'));
   } finally {
     console.log = originalLog;
   }

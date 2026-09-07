@@ -53,7 +53,7 @@ export function setupSignalHandlers() {
     isTerminating = true;
     killActiveChildProcesses();
     showCursor();
-    process.stdout.write('\n\x1b[90m✦ Operación cancelada.\x1b[0m\n');
+    process.stdout.write('\n\x1b[90m✦ Operation cancelled.\x1b[0m\n');
     process.exit(130);
   };
 

@@ -200,7 +200,7 @@ async function fetchStreamingPage(url) {
     headers: { 'User-Agent': 'TrackCLI/0.1 (+https://github.com/01-Menjivar/TrackCLI)' },
     signal: AbortSignal.timeout(6_000),
   });
-  if (!response.ok) throw new Error(`El servicio respondió ${response.status}.`);
+  if (!response.ok) throw new Error(`Service responded with status ${response.status}.`);
   return response.text();
 }
 
@@ -574,15 +574,15 @@ async function fetchCandidates(searchQuery) {
 
   await new Promise((resolveSearch, rejectSearch) => {
     child.on('error', rejectSearch);
-    child.on('close', (status) => status === 0 ? resolveSearch() : rejectSearch(new Error(failure.trim() || 'No pude buscar esa canción.')));
+    child.on('close', (status) => status === 0 ? resolveSearch() : rejectSearch(new Error(failure.trim() || 'Could not search for that song.')));
   });
 
   return output.trim().split(/\r?\n/).filter(Boolean).map((line) => {
     const [id, title, uploader, duration, channel] = line.split('\t');
     return {
       id,
-      title: title || 'Sin título',
-      uploader: uploader || 'Canal desconocido',
+      title: title || 'Untitled',
+      uploader: uploader || 'Unknown Channel',
       duration: duration || '?',
       channel: channel || uploader || '',
     };
@@ -627,7 +627,7 @@ export async function searchSongs(query, limit = 5, targetDurationSeconds = 0) {
 export async function findBestAudioSong(query, targetDurationSeconds = 0) {
   const results = await searchSongs(query, 5, targetDurationSeconds);
   if (!results.length) {
-    throw new Error('No encontré resultados de audio para esa búsqueda. Prueba con título y artista.');
+    throw new Error('No audio results found for that search. Try searching with title and artist.');
   }
   return results[0];
 }
@@ -637,14 +637,14 @@ export async function readQueue(filename) {
   try {
     content = await readFile(filename, 'utf8');
   } catch (error) {
-    if (error.code === 'ENOENT') throw new Error(`No encuentro el archivo: ${filename}`);
+    if (error.code === 'ENOENT') throw new Error(`Cannot find file: ${filename}`);
     throw error;
   }
   const urls = content
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#'));
-  if (!urls.length) throw new Error('La lista no tiene enlaces. Añade uno por línea.');
+  if (!urls.length) throw new Error('The list contains no links. Add one per line.');
   return urls;
 }
 
@@ -690,15 +690,15 @@ function sleep(ms) {
 function formatYtDlpError(rawFailure, status, signal) {
   const failure = (rawFailure || '').trim();
   if (/HTTP Error 429|Too Many Requests/i.test(failure)) {
-    return 'YouTube ha limitado temporalmente las peticiones (HTTP 429). Reduce la concurrencia con -c 2 o espera unos minutos.';
+    return 'YouTube has temporarily rate-limited requests (HTTP 429). Reduce concurrency with -c 2 or wait a few minutes.';
   }
   if (/Sign in to confirm you(?:'re| are) not a bot/i.test(failure)) {
-    return 'YouTube requiere verificación de bot. Reduce la concurrencia con -c 2 o intenta más tarde.';
+    return 'YouTube requires bot verification. Reduce concurrency with -c 2 or try again later.';
   }
   if (/HTTP Error 403: Forbidden/i.test(failure)) {
-    return 'Acceso denegado por YouTube (HTTP 403). La conexión o dirección IP fue restringida temporalmente.';
+    return 'Access denied by YouTube (HTTP 403). Your connection or IP was temporarily restricted.';
   }
-  return failure || `yt-dlp terminó con código ${status ?? signal}.`;
+  return failure || `yt-dlp exited with code ${status ?? signal}.`;
 }
 
 export async function resolveBatchEntries(entries, options = {}, onProgress = null) {
@@ -733,12 +733,12 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
                 album: meta.title || tr.album,
                 albumArtist: meta.artist || tr.albumArtist || tr.artist,
               },
-              display: `${tr.title} (búsqueda directa) [${meta.title}]`,
+              display: `${tr.title} (direct search) [${meta.title}]`,
             };
           }
         });
         resolvedCount++;
-        if (onProgress) onProgress(resolvedCount, entries.length, { display: `Álbum: ${meta.title} (${meta.tracks.length} pistas)` }, entry);
+        if (onProgress) onProgress(resolvedCount, entries.length, { display: `Album: ${meta.title} (${meta.tracks.length} tracks)` }, entry);
         return albumJobs;
       }
 
@@ -754,7 +754,7 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
           job = {
             url: `ytsearch1:${meta.query} audio`,
             metadata: meta,
-            display: `${meta.title} (búsqueda directa)`,
+            display: `${meta.title} (direct search)`,
           };
         }
       }
@@ -770,7 +770,7 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
       } catch {
         job = {
           url: `ytsearch1:${entry} audio`,
-          display: `${entry} (búsqueda directa)`,
+          display: `${entry} (direct search)`,
         };
       }
     }
@@ -869,7 +869,7 @@ export async function runQueue(jobs, options = {}) {
     try {
       const result = await downloadOne(job.url, jobOptions, label);
       results[index] = { ...result, ok: true };
-      const skipNotice = result.skipped ? ` ${color.dim('(ya existe)')}` : '';
+      const skipNotice = result.skipped ? ` ${color.dim('(already exists)')}` : '';
       console.log(mark('success', `${color.bold(label)} ${result.title || job.url}${skipNotice}`));
     } catch (error) {
       results[index] = { url: job.url, title: job.metadata?.title || (typeof entry === 'string' ? entry : job.url), ok: false, error: error.message };
@@ -947,7 +947,7 @@ export async function runBatchPipeline(entries, options = {}) {
                     album: meta.title || tr.album,
                     albumArtist: meta.artist || tr.albumArtist || tr.artist,
                   },
-                  display: `${tr.title} (búsqueda directa) [${meta.title}]`,
+                  display: `${tr.title} (direct search) [${meta.title}]`,
                 };
               }
             });
@@ -964,7 +964,7 @@ export async function runBatchPipeline(entries, options = {}) {
               jobList = [{
                 url: `ytsearch1:${meta.query} audio`,
                 metadata: meta,
-                display: `${meta.title} (búsqueda directa)`,
+                display: `${meta.title} (direct search)`,
               }];
             }
           } else {
@@ -972,7 +972,7 @@ export async function runBatchPipeline(entries, options = {}) {
               url: entry,
               display: entry,
               ok: false,
-              error: 'No se pudieron extraer metadatos del enlace de streaming.',
+              error: 'Could not extract metadata from streaming link.',
             });
             continue;
           }
@@ -988,7 +988,7 @@ export async function runBatchPipeline(entries, options = {}) {
           } catch {
             jobList = [{
               url: `ytsearch1:${entry} audio`,
-              display: `${entry} (búsqueda directa)`,
+              display: `${entry} (direct search)`,
             }];
           }
         }
@@ -1002,7 +1002,7 @@ export async function runBatchPipeline(entries, options = {}) {
           url: entry,
           display: entry,
           ok: false,
-          error: `Error al procesar entrada: ${err.message}`,
+          error: `Error processing entry: ${err.message}`,
         });
       }
     }
@@ -1047,7 +1047,7 @@ export async function runBatchPipeline(entries, options = {}) {
       try {
         const result = await downloadOne(job.url, jobOptions, label);
         results.push({ ...result, display: job.display, ok: true, jobIndex: jobPos - 1 });
-        const skipNotice = result.skipped ? ` ${color.dim('(ya existe)')}` : '';
+        const skipNotice = result.skipped ? ` ${color.dim('(already exists)')}` : '';
         console.log(mark('success', `${color.bold(label)} ${result.title || job.url}${skipNotice}`));
       } catch (error) {
         results.push({ url: job.url, display: job.display, ok: false, error: error.message, jobIndex: jobPos - 1 });

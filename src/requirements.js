@@ -39,7 +39,7 @@ export async function ensureRequirements(forceRefresh = false) {
   if (!status.ytDlp) missing.push('yt-dlp');
   if (!status.ffmpeg) missing.push('ffmpeg');
   if (missing.length) {
-    throw new Error(`Falta ${missing.join(' y ')}. Consulta "trackcli doctor" para instalarlo.`);
+    throw new Error(`Missing ${missing.join(' and ')}. Run "trackcli doctor" for installation instructions.`);
   }
   return status;
 }

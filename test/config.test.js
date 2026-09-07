@@ -43,10 +43,10 @@ test('saveConfig y setConfigValue persisten cambios correctamente (5A)', async (
     assert.equal(config.playlist, true);
 
     // Valida errores en claves inválidas o valores incorrectos
-    await assert.rejects(() => setConfigValue('invalidKey', 'foo'), /Clave de configuración inválida/);
-    await assert.rejects(() => setConfigValue('format', 'mp4'), /Formato no válido/);
-    await assert.rejects(() => setConfigValue('concurrency', '0'), /concurrencia debe ser un número/);
-    await assert.rejects(() => setConfigValue('concurrency', '7'), /concurrencia debe ser un número/);
+    await assert.rejects(() => setConfigValue('invalidKey', 'foo'), /Invalid configuration key/);
+    await assert.rejects(() => setConfigValue('format', 'mp4'), /Invalid format/);
+    await assert.rejects(() => setConfigValue('concurrency', '0'), /Concurrency must be a number/);
+    await assert.rejects(() => setConfigValue('concurrency', '7'), /Concurrency must be a number/);
 
     // Reset restaura valores iniciales
     const reset = await resetConfig();

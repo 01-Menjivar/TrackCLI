@@ -58,13 +58,13 @@ export function parseOptions(tokens, userConfig = {}) {
     if (token === '-c' || token.startsWith('-c=')) {
       const value = token.startsWith('-c=') ? token.slice(3) : tokens[++index];
       const parsed = parseInt(value, 10);
-      if (!parsed || parsed < 1 || parsed > 6) throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
+      if (!parsed || parsed < 1 || parsed > 6) throw new Error('Concurrency must be a number between 1 and 6 (recommended: 3).');
       options.concurrency = parsed;
       continue;
     }
     if (token === '-o' || token.startsWith('-o=')) {
       const value = token.startsWith('-o=') ? token.slice(3) : tokens[++index];
-      if (!value || value.startsWith('-')) throw new Error('Falta un valor para -o / --output.');
+      if (!value || value.startsWith('-')) throw new Error('Missing value for -o / --output.');
       options.output = value;
       continue;
     }
@@ -100,21 +100,21 @@ export function parseOptions(tokens, userConfig = {}) {
     if (flag === 'concurrency') {
       const value = attached ?? tokens[++index];
       const parsed = parseInt(value, 10);
-      if (!parsed || parsed < 1 || parsed > 6) throw new Error('La concurrencia debe ser un número entre 1 y 6 (recomendado: 3).');
+      if (!parsed || parsed < 1 || parsed > 6) throw new Error('Concurrency must be a number between 1 and 6 (recommended: 3).');
       options.concurrency = parsed;
       continue;
     }
     if (flag === 'format' || flag === 'output') {
       const value = attached ?? tokens[++index];
-      if (!value || value.startsWith('--')) throw new Error(`Falta un valor para --${flag}.`);
+      if (!value || value.startsWith('--')) throw new Error(`Missing value for --${flag}.`);
       options[flag] = value;
       continue;
     }
-    throw new Error(`No conozco la opción --${flag}. Ejecuta trackcli help.`);
+    throw new Error(`Unknown option --${flag}. Run trackcli help.`);
   }
 
   if (!formats.has(options.format)) {
-    throw new Error(`Formato no válido: ${options.format}. Usa: ${[...formats].join(', ')}.`);
+    throw new Error(`Invalid format: ${options.format}. Use: ${[...formats].join(', ')}.`);
   }
 
   // Propiedades de retrocompatibilidad
