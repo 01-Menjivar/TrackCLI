@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { buildYtDlpArgs, escapeFfmpegMetadata, parseOptions, sanitizePathSegment } from '../src/args.js';
+import { buildYtDlpArgs, escapeFfmpegMetadata, parseOptions, sanitizeMediaUrl, sanitizePathSegment, sanitizeSearchQuery } from '../src/args.js';
 
 test('usa una carpeta de descargas predecible por defecto', () => {
   const { options, positional } = parseOptions(['https://example.com/audio']);
@@ -170,4 +170,61 @@ test('parseOptions respeta thumbnail: false para retrocompatibilidad', () => {
   const parsed = parseOptions(['https://example.com'], { thumbnail: false });
   assert.equal(parsed.options.cover, false);
   assert.equal(parsed.options.thumbnail, false);
+});
+
+test('sanitizeMediaUrl limpia enlaces de YouTube con parámetros de radio/mix y tracking', () => {
+  // Caso de la imagen: radio mix de YouTube con &list=RD... y &start_radio=1
+  const mixUrl = 'https://www.youtube.com/watch?v=bgm4N4OnHsQ&list=RDbgm4N4OnHsQ&start_radio=1';
+  assert.equal(sanitizeMediaUrl(mixUrl), 'https://www.youtube.com/watch?v=bgm4N4OnHsQ');
+
+  // URL envuelta en comillas simples o dobles
+  assert.equal(sanitizeMediaUrl('"https://www.youtube.com/watch?v=bgm4N4OnHsQ"'), 'https://www.youtube.com/watch?v=bgm4N4OnHsQ');
+  assert.equal(sanitizeMediaUrl("'https://www.youtube.com/watch?v=bgm4N4OnHsQ'"), 'https://www.youtube.com/watch?v=bgm4N4OnHsQ');
+
+  // Enlace corto youtu.be con tracking ?si=...
+  assert.equal(sanitizeMediaUrl('https://youtu.be/bgm4N4OnHsQ?si=abcdef12345'), 'https://www.youtube.com/watch?v=bgm4N4OnHsQ');
+
+  // YouTube Shorts
+  assert.equal(sanitizeMediaUrl('https://www.youtube.com/shorts/bgm4N4OnHsQ?feature=share'), 'https://www.youtube.com/watch?v=bgm4N4OnHsQ');
+
+  // Playlist dedicada se mantiene limpia
+  assert.equal(sanitizeMediaUrl('https://www.youtube.com/playlist?list=PL12345&si=abc'), 'https://www.youtube.com/playlist?list=PL12345');
+
+  // Si playlist: true y es playlist legítima (no mix RD), se preserva list
+  assert.equal(
+    sanitizeMediaUrl('https://www.youtube.com/watch?v=abc&list=PL12345&index=2', { playlist: true }),
+    'https://www.youtube.com/watch?v=abc&list=PL12345'
+  );
+
+  // Si playlist: false (default), se descarta list de videos individuales
+  assert.equal(
+    sanitizeMediaUrl('https://www.youtube.com/watch?v=abc&list=PL12345&index=2', { playlist: false }),
+    'https://www.youtube.com/watch?v=abc'
+  );
+});
+
+test('sanitizeMediaUrl limpia enlaces de Spotify y Apple Music', () => {
+  // Spotify track y album con tracking ?si=...
+  assert.equal(
+    sanitizeMediaUrl('https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=abc12345'),
+    'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'
+  );
+  assert.equal(
+    sanitizeMediaUrl('https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc?si=xyz987'),
+    'https://open.spotify.com/album/2noRn2Aes5aoNVsU6iWThc'
+  );
+
+  // Apple Music preserva parámetro ?i= pero elimina parámetros de tracking/marketing
+  assert.equal(
+    sanitizeMediaUrl('https://music.apple.com/us/album/song-name/12345?i=67890&uo=4&l=en'),
+    'https://music.apple.com/us/album/song-name/12345?i=67890'
+  );
+});
+
+test('sanitizeSearchQuery normaliza espacios, elimina comillas y caracteres de control', () => {
+  assert.equal(sanitizeSearchQuery('  "Queen - Bohemian Rhapsody"  '), 'Queen - Bohemian Rhapsody');
+  assert.equal(sanitizeSearchQuery("'AC/DC - Back in Black'"), 'AC/DC - Back in Black');
+  assert.equal(sanitizeSearchQuery('Daft\tPunk\n\rGet   Lucky'), 'Daft Punk Get Lucky');
+  assert.equal(sanitizeSearchQuery(''), '');
+  assert.equal(sanitizeSearchQuery(null), '');
 });

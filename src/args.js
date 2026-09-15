@@ -12,6 +12,96 @@ export function sanitizePathSegment(name) {
     .slice(0, 120);
 }
 
+export function sanitizeSearchQuery(query) {
+  if (!query || typeof query !== 'string') return '';
+  return query
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .replace(/[\r\n\t\0]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function sanitizeMediaUrl(rawUrl, options = {}) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const trimmed = rawUrl.trim().replace(/^['"]+|['"]+$/g, '');
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return trimmed;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return trimmed;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // YouTube
+  const isYouTube = hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be';
+  if (isYouTube) {
+    // Dedicated playlist: https://www.youtube.com/playlist?list=PL...
+    if (parsed.pathname === '/playlist') {
+      const listId = parsed.searchParams.get('list');
+      if (listId) {
+        return `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}`;
+      }
+      return trimmed;
+    }
+
+    // Video ID extraction
+    let videoId = '';
+    if (hostname === 'youtu.be') {
+      videoId = parsed.pathname.slice(1).split('/')[0];
+    } else if (parsed.pathname.startsWith('/shorts/')) {
+      videoId = parsed.pathname.slice('/shorts/'.length).split('/')[0];
+    } else if (parsed.pathname === '/watch') {
+      videoId = parsed.searchParams.get('v') || '';
+    }
+
+    if (videoId) {
+      const listId = parsed.searchParams.get('list');
+      const isRadioOrMix = Boolean(listId && /^RD/i.test(listId));
+      const shouldKeepPlaylist = options.playlist === true && listId && !isRadioOrMix;
+
+      if (shouldKeepPlaylist) {
+        return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&list=${encodeURIComponent(listId)}`;
+      }
+      return `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    }
+  }
+
+  // Spotify
+  if (hostname === 'open.spotify.com') {
+    return `https://open.spotify.com${parsed.pathname}`;
+  }
+
+  // Apple Music
+  if (hostname === 'music.apple.com' || hostname.endsWith('.music.apple.com')) {
+    const trackParam = parsed.searchParams.get('i');
+    if (trackParam) {
+      return `https://music.apple.com${parsed.pathname}?i=${encodeURIComponent(trackParam)}`;
+    }
+    return `https://music.apple.com${parsed.pathname}`;
+  }
+
+  // Generic Web URLs: strip common tracking/analytics parameters
+  const TRACKING_PARAMS = [
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+    'fbclid', 'gclid', 'si', 'feature', 'ref', 'source',
+  ];
+  let modified = false;
+  for (const p of TRACKING_PARAMS) {
+    if (parsed.searchParams.has(p)) {
+      parsed.searchParams.delete(p);
+      modified = true;
+    }
+  }
+
+  return modified ? parsed.toString() : trimmed;
+}
+
 export function isDedicatedPlaylistUrl(url) {
   if (!url || typeof url !== 'string') return false;
   try {
@@ -135,6 +225,7 @@ export function escapeFfmpegMetadata(value) {
 }
 
 export function buildYtDlpArgs(url, options = {}) {
+  const targetUrl = sanitizeMediaUrl(url, options);
   const baseOutput = options.output || 'trackcli-downloads';
   let output;
 
@@ -188,7 +279,7 @@ export function buildYtDlpArgs(url, options = {}) {
     args.push('--embed-thumbnail');
   }
 
-  const isDedicatedPlaylist = isDedicatedPlaylistUrl(url);
+  const isDedicatedPlaylist = isDedicatedPlaylistUrl(targetUrl);
   const shouldDownloadPlaylist = options.playlist === true || isDedicatedPlaylist || options.single === false;
   if (!shouldDownloadPlaylist) {
     args.push('--no-playlist');
@@ -211,6 +302,6 @@ export function buildYtDlpArgs(url, options = {}) {
       args.push('--postprocessor-args', `ffmpeg:${ffmpegArgs.join(' ')}`);
     }
   }
-  args.push('--', url);
+  args.push('--', targetUrl);
   return args;
 }

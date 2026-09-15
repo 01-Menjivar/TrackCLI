@@ -170,9 +170,18 @@ curl -fsSL https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.s
 ```
 
 ### Automatic Installer (Windows)
+
+In PowerShell (run this first to allow script execution if not already enabled):
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Then run the installer:
 ```powershell
 irm https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.ps1 | iex
 ```
+
+> **Note:** Windows blocks script execution by default in PowerShell. Setting `RemoteSigned` for the `CurrentUser` scope (does not require administrator privileges) is required so that both `npm` and the `trackcli` command can run without security policy errors.
 
 ### Global Install via npm
 ```bash

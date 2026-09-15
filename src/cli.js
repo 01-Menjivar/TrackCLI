@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
-import { parseOptions } from './args.js';
+import { parseOptions, sanitizeMediaUrl, sanitizeSearchQuery } from './args.js';
 import { getConfigPath, loadConfig, resetConfig, setConfigValue } from './config.js';
 import { findBestAudioSong, isStreamingUrl, isWebUrl, mapConcurrent, readQueue, resolveBatchEntries, resolveStreamingMetadata, runBatchPipeline, runQueue, searchSongs } from './download.js';
 import { setupSignalHandlers, spawnTracked } from './process.js';
@@ -244,8 +244,9 @@ async function interactiveMenu(userConfig = {}) {
     }
 
     if (selected.id === 'search') {
-      const query = await ask('Artist - Song');
-      if (query === null) continue;
+      const rawQuery = await ask('Artist - Song');
+      if (rawQuery === null) continue;
+      const query = sanitizeSearchQuery(rawQuery);
       if (query) {
         console.log('');
         try {
@@ -257,8 +258,9 @@ async function interactiveMenu(userConfig = {}) {
       }
       console.log('');
     } else if (selected.id === 'download') {
-      const url = await ask('YouTube, Spotify, or Apple Music link');
-      if (url === null) continue;
+      const rawUrl = await ask('YouTube, Spotify, or Apple Music link');
+      if (rawUrl === null) continue;
+      const url = isWebUrl(rawUrl) ? sanitizeMediaUrl(rawUrl, activeConfig) : sanitizeSearchQuery(rawUrl);
       if (url) {
         console.log('');
         try {
@@ -270,8 +272,9 @@ async function interactiveMenu(userConfig = {}) {
       }
       console.log('');
     } else if (selected.id === 'batch') {
-      const filePath = await ask('Path to list file (.txt)');
-      if (filePath === null) continue;
+      const rawFilePath = await ask('Path to list file (.txt)');
+      if (rawFilePath === null) continue;
+      const filePath = rawFilePath.trim().replace(/^['"]+|['"]+$/g, '');
       if (filePath) {
         console.log('');
         try {
@@ -296,8 +299,10 @@ async function executeDownload(tokens, userConfig = {}) {
   if (!positional.length) throw new Error('Specify at least one link. Example: trackcli download <URL>');
   await ensureRequirements();
 
-  if (positional.length === 1) {
-    const url = positional[0];
+  const sanitizedPositional = positional.map((url) => isWebUrl(url) ? sanitizeMediaUrl(url, options) : sanitizeSearchQuery(url));
+
+  if (sanitizedPositional.length === 1) {
+    const url = sanitizedPositional[0];
     const jobs = [];
     if (isStreamingUrl(url)) {
       const spinner = createSpinner(`Extracting information from ${color.bold(url)}…`);
@@ -359,9 +364,9 @@ async function executeDownload(tokens, userConfig = {}) {
   }
 
   // Multiple URLs in download command: resolve in parallel
-  const spinner = createSpinner(`Analyzing ${positional.length} links in parallel…`);
+  const spinner = createSpinner(`Analyzing ${sanitizedPositional.length} links in parallel…`);
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
-  const rawJobs = await mapConcurrent(positional, concurrency, async (url) => {
+  const rawJobs = await mapConcurrent(sanitizedPositional, concurrency, async (url) => {
     if (isStreamingUrl(url)) {
       const meta = await resolveStreamingMetadata(url);
       if (!meta) return [{ url }];
@@ -434,7 +439,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
   const { options } = parseOptions(tokens, userConfig);
   await ensureRequirements();
 
-  let query = initialQuery;
+  let query = sanitizeSearchQuery(initialQuery);
 
   while (query) {
     const spinner = createSpinner(`Searching for ${color.bold(query)}…`);
@@ -446,7 +451,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
       spinner.fail(`No results found for: ${query}`);
       const retryQuery = await ask('Enter another search query (or Enter to cancel)');
       if (!retryQuery) return;
-      query = retryQuery;
+      query = sanitizeSearchQuery(retryQuery);
       continue;
     }
 
@@ -454,7 +459,7 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
       console.log(mark('warning', 'No audio results found.'));
       const retryQuery = await ask('Enter another search query (or Enter to cancel)');
       if (!retryQuery) return;
-      query = retryQuery;
+      query = sanitizeSearchQuery(retryQuery);
       continue;
     }
 
@@ -491,13 +496,13 @@ async function executeSearchInteractive(initialQuery, tokens, userConfig = {}) {
       console.log(color.dim('Download cancelled.'));
       return;
     }
-    query = retryQuery;
+    query = sanitizeSearchQuery(retryQuery);
   }
 }
 
 async function executeSearch(tokens, userConfig = {}) {
   const { options, positional } = parseOptions(tokens, userConfig);
-  const query = positional.join(' ').trim();
+  const query = sanitizeSearchQuery(positional.join(' '));
   if (!query) throw new Error('Specify the track name. Example: trackcli search "Artist - Song"');
   await ensureRequirements();
 

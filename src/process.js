@@ -65,8 +65,26 @@ export function setupSignalHandlers() {
   });
 }
 
+export function escapeShellArgForWindows(arg) {
+  if (typeof arg !== 'string') return arg;
+  if (!arg) return '""';
+  // If argument contains cmd.exe metacharacters (&, |, <, >, ^, %) or whitespace,
+  // ensure it is properly enclosed in double quotes for cmd.exe
+  if (/[ &|<>()^%"]/.test(arg)) {
+    if (arg.startsWith('"') && arg.endsWith('"') && arg.length >= 2) {
+      return arg;
+    }
+    return `"${arg.replace(/"/g, '\\"')}"`;
+  }
+  return arg;
+}
+
 export function spawnTracked(command, args, options = {}) {
   setupSignalHandlers();
-  const child = spawn(command, args, options);
+  let finalArgs = args;
+  if (options.shell && process.platform === 'win32' && Array.isArray(args)) {
+    finalArgs = args.map(escapeShellArgForWindows);
+  }
+  const child = spawn(command, finalArgs, options);
   return registerChildProcess(child);
 }

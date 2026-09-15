@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { getActiveChildCount, killActiveChildProcesses, registerChildProcess, unregisterChildProcess } from '../src/process.js';
+import { escapeShellArgForWindows, getActiveChildCount, killActiveChildProcesses, registerChildProcess, unregisterChildProcess } from '../src/process.js';
 import { hideCursor, showCursor } from '../src/ui.js';
 
 test('registerChildProcess y unregisterChildProcess gestionan subprocesos activos', () => {
@@ -54,4 +54,23 @@ test('showCursor y hideCursor emiten secuencias ANSI apropiadas en TTY', () => {
     process.stdout.isTTY = originalIsTTY;
     process.stdout.write = originalWrite;
   }
+});
+
+test('escapeShellArgForWindows entrecomilla y protege argumentos con metacaracteres de cmd.exe', () => {
+  // Metacaracteres que cmd.exe interpreta como operadores (&, |, <, >, ^, %)
+  assert.equal(
+    escapeShellArgForWindows('https://example.com/watch?v=abc&list=RD123&start_radio=1'),
+    '"https://example.com/watch?v=abc&list=RD123&start_radio=1"'
+  );
+  assert.equal(escapeShellArgForWindows('ytsearch5:AC&DC'), '"ytsearch5:AC&DC"');
+  assert.equal(escapeShellArgForWindows('foo | bar'), '"foo | bar"');
+  assert.equal(escapeShellArgForWindows('^test%'), '"^test%"');
+
+  // Argumentos ya entrecomillados se respetan
+  assert.equal(escapeShellArgForWindows('"ya entrecomillado"'), '"ya entrecomillado"');
+
+  // Argumentos sin espacios ni metacaracteres se mantienen intactos
+  assert.equal(escapeShellArgForWindows('--format'), '--format');
+  assert.equal(escapeShellArgForWindows('mp3'), 'mp3');
+  assert.equal(escapeShellArgForWindows(''), '""');
 });

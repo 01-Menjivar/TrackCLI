@@ -1,13 +1,15 @@
 import { mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
-import { buildYtDlpArgs } from './args.js';
+import { buildYtDlpArgs, sanitizeMediaUrl, sanitizeSearchQuery } from './args.js';
 import { spawnTracked } from './process.js';
 import { ytDlpCommand } from './requirements.js';
 import { color, createSpinner, endProgress, mark, progress } from './ui.js';
 
 export function isWebUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  const cleaned = value.trim().replace(/^['"]+|['"]+$/g, '');
   try {
-    const url = new URL(value);
+    const url = new URL(cleaned);
     return url.protocol === 'https:' || url.protocol === 'http:';
   } catch {
     return false;
@@ -593,7 +595,7 @@ async function fetchCandidates(searchQuery) {
 }
 
 async function executeSongSearch(query, limit = 5, targetDurationSeconds = 0) {
-  const cleanQuery = query.trim();
+  const cleanQuery = sanitizeSearchQuery(query);
   let candidates = await fetchCandidates(`ytsearch${limit}:${cleanQuery}`);
 
   if (!candidates.length && !cleanQuery.toLowerCase().includes('audio')) {
@@ -632,7 +634,7 @@ export async function findBestAudioSong(query, targetDurationSeconds = 0) {
   return results[0];
 }
 
-export async function readQueue(filename) {
+export async function readQueue(filename, options = {}) {
   let content;
   try {
     content = await readFile(filename, 'utf8');
@@ -642,8 +644,9 @@ export async function readQueue(filename) {
   }
   const urls = content
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'));
+    .map((line) => line.trim().replace(/^['"]+|['"]+$/g, ''))
+    .filter((line) => line && !line.startsWith('#'))
+    .map((entry) => isWebUrl(entry) ? sanitizeMediaUrl(entry, options) : sanitizeSearchQuery(entry));
   if (!urls.length) throw new Error('The list contains no links. Add one per line.');
   return urls;
 }
@@ -698,14 +701,21 @@ function formatYtDlpError(rawFailure, status, signal) {
   if (/HTTP Error 403: Forbidden/i.test(failure)) {
     return 'Access denied by YouTube (HTTP 403). Your connection or IP was temporarily restricted.';
   }
+  if (/not recognized as an internal or external command|operable program or batch file/i.test(failure)) {
+    return 'External dependency failed to execute (command not found in PATH or shell syntax error). Run "trackcli doctor" to verify dependencies.';
+  }
   return failure || `yt-dlp exited with code ${status ?? signal}.`;
 }
 
 export async function resolveBatchEntries(entries, options = {}, onProgress = null) {
   const concurrency = Math.max(1, Math.min(normalizeConcurrency(options.concurrency), 3));
   let resolvedCount = 0;
+  const sanitizedEntries = entries.map((entry) => {
+    if (typeof entry !== 'string') return entry;
+    return isWebUrl(entry) ? sanitizeMediaUrl(entry, options) : sanitizeSearchQuery(entry);
+  });
 
-  const rawResults = await mapConcurrent(entries, concurrency, async (entry) => {
+  const rawResults = await mapConcurrent(sanitizedEntries, concurrency, async (entry) => {
     let job = null;
     if (isStreamingUrl(entry)) {
       const meta = await resolveStreamingMetadata(entry);
@@ -800,6 +810,7 @@ export async function downloadOne(url, options = {}, position) {
   });
   let title = url;
   let failure = '';
+  const errorLines = [];
   let sawProgress = false;
   let skipped = false;
   const isConcurrent = Boolean(options.isConcurrent);
@@ -828,7 +839,13 @@ export async function downloadOne(url, options = {}, position) {
     }
     if (/\[download\]\s+Destination:/i.test(line)) title = cleanTitle(line);
     if (/\[ExtractAudio\]|\[Metadata\]|\[ThumbnailsConvertor\]/.test(line)) title = title || url;
-    if (isError || /^ERROR:/i.test(line)) failure = line.replace(/^ERROR:\s*/i, '');
+    if (isError || /^ERROR:/i.test(line)) {
+      const cleaned = line.replace(/^ERROR:\s*/i, '').trim();
+      if (cleaned) {
+        errorLines.push(cleaned);
+        failure = errorLines.join(' ');
+      }
+    }
   };
   const attachLines = (stream, isError) => {
     let buffered = '';
@@ -895,9 +912,14 @@ export async function runBatchPipeline(entries, options = {}) {
   const output = resolve(options.output);
   await mkdir(output, { recursive: true });
 
+  const sanitizedEntries = entries.map((entry) => {
+    if (typeof entry !== 'string') return entry;
+    return isWebUrl(entry) ? sanitizeMediaUrl(entry, options) : sanitizeSearchQuery(entry);
+  });
+
   const searchConcurrency = Math.max(1, Math.min(normalizeConcurrency(options.concurrency), 3));
   const downloadConcurrency = normalizeConcurrency(options.concurrency);
-  const isConcurrent = entries.length > 1;
+  const isConcurrent = sanitizedEntries.length > 1;
 
   const readyJobs = [];
   const results = [];
@@ -917,9 +939,9 @@ export async function runBatchPipeline(entries, options = {}) {
 
   let entryIndex = 0;
   const resolveWorker = async () => {
-    while (entryIndex < entries.length) {
+    while (entryIndex < sanitizedEntries.length) {
       const idx = entryIndex++;
-      const entry = entries[idx];
+      const entry = sanitizedEntries[idx];
       try {
         let jobList = [];
         if (isStreamingUrl(entry)) {
@@ -1009,7 +1031,7 @@ export async function runBatchPipeline(entries, options = {}) {
   };
 
   const resolveWorkers = Array.from(
-    { length: Math.min(searchConcurrency, entries.length) },
+    { length: Math.min(searchConcurrency, sanitizedEntries.length) },
     () => resolveWorker()
   );
 
