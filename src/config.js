@@ -56,6 +56,14 @@ export async function saveConfig(config) {
   return config;
 }
 
+function parseBooleanValue(key, value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  throw new Error(`Invalid value for ${key}: "${value}". Use true or false.`);
+}
+
 export async function setConfigValue(key, value) {
   const validKeys = new Set([
     'format', 'output', 'concurrency',
@@ -83,13 +91,13 @@ export async function setConfigValue(key, value) {
     }
     config.concurrency = parsed;
   } else if (key === 'cover' || key === 'thumbnail') {
-    config.cover = value === 'true' || value === '1' || value === true;
+    config.cover = parseBooleanValue(key, value);
   } else if (key === 'minimal') {
-    config.cover = !(value === 'true' || value === '1' || value === true);
+    config.cover = !parseBooleanValue(key, value);
   } else if (key === 'overwrite' || key === 'force') {
-    config.overwrite = value === 'true' || value === '1' || value === true;
+    config.overwrite = parseBooleanValue(key, value);
   } else if (key === 'playlist') {
-    config.playlist = value === 'true' || value === '1' || value === true;
+    config.playlist = parseBooleanValue(key, value);
   } else if (key === 'output') {
     config.output = String(value);
   }

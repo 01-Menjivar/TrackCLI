@@ -131,3 +131,18 @@ test('setConfigValue y resetConfig no fijan en disco el output por defecto depen
     assert.deepEqual(JSON.parse(await readFile(getConfigPath(), 'utf8')), {});
   });
 });
+
+test('setConfigValue acepta variantes booleanas y rechaza valores ambiguos', async () => {
+  await withTempConfigDir(async () => {
+    await setConfigValue('overwrite', 'yes');
+    assert.equal((await loadConfig()).overwrite, true);
+    await setConfigValue('overwrite', 'off');
+    assert.equal((await loadConfig()).overwrite, false);
+    await setConfigValue('minimal', 'on');
+    assert.equal((await loadConfig()).cover, false);
+
+    await assert.rejects(() => setConfigValue('playlist', 'maybe'), /Invalid value for playlist/);
+    await assert.rejects(() => setConfigValue('cover', ''), /Invalid value for cover/);
+    assert.equal((await loadConfig()).playlist, false);
+  });
+});
