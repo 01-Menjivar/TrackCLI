@@ -235,5 +235,5 @@ test('buildYtDlpArgs escapa "%" literal en el nombre de salida para yt-dlp', () 
     metadata: { artist: 'Artist', title: '100% Love' },
   });
   const output = args[args.indexOf('--output') + 1];
-  assert.equal(output, path.join('/music/100%%', '100%% Love.%(ext)s'));
+  assert.equal(output, path.join('/music/100%%', 'Artist - 100%% Love.%(ext)s'));
 });
