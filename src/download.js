@@ -440,7 +440,8 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   const channel = (song.channel || '').toLowerCase();
   const q = query.toLowerCase();
 
-  const qHas = (word) => q.includes(word);
+  // Whole-word match so e.g. "Slowdive" does not count as asking for "slow".
+  const qHas = (word) => new RegExp(`(^|[^\\p{L}\\p{N}])${word}($|[^\\p{L}\\p{N}])`, 'iu').test(q);
 
   // 1. Penalizaciones MUY severas para videoclips y contenido audiovisual con ruidos/diálogos externos
   // (Incluso si están en el canal oficial del artista, los videoclips suelen contener diálogos, efectos sonoros o pausas)
@@ -456,7 +457,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   if (/\b(short|shorts|#shorts|tiktok)\b/i.test(title)) {
     score -= 400;
   }
-  if (!qHas('slow') && !qHas('reverb') && !qHas('loop') && !qHas('sped') && !qHas('nightcore')) {
+  if (!qHas('slow') && !qHas('slowed') && !qHas('reverb') && !qHas('loop') && !qHas('sped') && !qHas('nightcore')) {
     if (/\b(slowed|reverb|sped\s+up|nightcore|pitch|\d+d\s+audio|bass\s+boost(ed)?|10\s*hours?|1\s*hour|10\s*min\s*loop|hour\s+loop)\b/i.test(title)) {
       score -= 300;
     }
@@ -489,7 +490,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   }
 
   // 2. PRIORIDAD MÁXIMA Y AGRESIVA A FUENTES OFICIALES (YouTube Music Art Tracks y Canales del Artista)
-  const isTopicChannel = uploader.endsWith(' - topic') || channel.endsWith(' - topic') || uploader.includes('topic') || channel.includes('topic');
+  const isTopicChannel = uploader.endsWith(' - topic') || channel.endsWith(' - topic');
   if (isTopicChannel) {
     score += 250; // Fuente oficial de YouTube Music (audio directo provisto por discográfica / sello)
   }
@@ -498,7 +499,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   const potentialArtist = queryParts.length >= 2 ? queryParts[0] : '';
   const isOfficialArtistChannel = (potentialArtist && (uploader.includes(potentialArtist) || channel.includes(potentialArtist))) ||
     uploader.includes('vevo') || channel.includes('vevo') ||
-    uploader.includes('official') || channel.includes('official');
+    /\bofficial\b/.test(uploader) || /\bofficial\b/.test(channel);
 
   if (isOfficialArtistChannel && !isTopicChannel) {
     score += 120; // Canal oficial del artista / VEVO

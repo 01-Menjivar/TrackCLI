@@ -502,3 +502,18 @@ test('runQueue y runBatchPipeline no descargan dos veces la misma URL', async ()
     else process.env.TRACKCLI_CAPTURE_ARGS = originalCaptureFile;
   }
 });
+
+test('scoreAudioCandidate compara palabras completas en la consulta y en los nombres de canal', () => {
+  const slowed = { title: 'Alison (Slowed + Reverb)', uploader: 'Music Fan', duration: '4:00' };
+  // "Slowdive" contiene "slow" pero no pide una versión ralentizada
+  assert.ok(
+    scoreAudioCandidate(slowed, 'Slowdive Alison') < scoreAudioCandidate(slowed, 'Slowdive Alison slowed'),
+    'Slowdive no debe contar como petición de una versión slowed',
+  );
+
+  const base = { title: 'Alison', duration: '4:00' };
+  const plain = scoreAudioCandidate({ ...base, uploader: 'Random Music' }, 'Slowdive Alison');
+  assert.equal(scoreAudioCandidate({ ...base, uploader: 'Topical Music' }, 'Slowdive Alison'), plain);
+  assert.equal(scoreAudioCandidate({ ...base, uploader: 'Unofficial Fan' }, 'Slowdive Alison'), plain);
+  assert.ok(scoreAudioCandidate({ ...base, uploader: 'Slowdive Official' }, 'Slowdive Alison') > plain);
+});
