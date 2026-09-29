@@ -186,6 +186,7 @@ function appleMetadata(title, description) {
   return { ...generic, artist: byArtist || generic.artist };
 }
 
+const USER_AGENT = 'TrackCLI (+https://github.com/01-Menjivar/TrackCLI)';
 const metadataCache = new Map();
 const searchCache = new Map();
 
@@ -199,7 +200,7 @@ export function resetSearchCache() {
 
 async function fetchStreamingPage(url) {
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'TrackCLI/0.1 (+https://github.com/01-Menjivar/TrackCLI)' },
+    headers: { 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(6_000),
   });
   if (!response.ok) throw new Error(`Service responded with status ${response.status}.`);
@@ -256,7 +257,7 @@ export async function resolveStreamingMetadata(url) {
         const query = artist && title ? `${artist} ${title}` : (title || url);
         return {
           service: 'Spotify',
-          title: title || 'Canción de Spotify',
+          title: title || 'Spotify track',
           artist: artist || '',
           album: album || '',
           albumArtist: artist || '',
@@ -281,7 +282,7 @@ export async function resolveStreamingMetadata(url) {
     if (!hasTrackParam && albumId) {
       try {
         const itunesAlbumRes = await fetch(`https://itunes.apple.com/lookup?id=${albumId}&entity=song&country=${country}`, {
-          headers: { 'User-Agent': 'TrackCLI/0.1 (+https://github.com/01-Menjivar/TrackCLI)' },
+          headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(8_000),
         });
         if (itunesAlbumRes.ok) {
@@ -327,7 +328,7 @@ export async function resolveStreamingMetadata(url) {
     if (trackId) {
       try {
         const itunesRes = await fetch(`https://itunes.apple.com/lookup?id=${trackId}&country=${country}`, {
-          headers: { 'User-Agent': 'TrackCLI/0.1 (+https://github.com/01-Menjivar/TrackCLI)' },
+          headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(6_000),
         });
         if (itunesRes.ok) {
