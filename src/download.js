@@ -424,6 +424,8 @@ export async function resolveStreamingMetadata(url) {
   metadataCache.set(cleanUrl, promise);
   try {
     const result = await promise;
+    // Do not remember failures: a transient network error should be retried on the next lookup.
+    if (!result) metadataCache.delete(cleanUrl);
     return result;
   } catch (err) {
     metadataCache.delete(cleanUrl);

@@ -451,3 +451,27 @@ test('runBatchPipeline reporta transparentemente fallas de resolución en lugar 
   assert.ok(results[0].error.includes('Could not extract metadata') || results[0].error.includes('No se pudieron extraer metadatos') || results[0].error.includes('Error'));
 });
 
+
+test('no cachea fallos de metadatos: reintenta tras un error de red transitorio', async () => {
+  const originalFetch = globalThis.fetch;
+  resetMetadataCache();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('network down');
+    return new Response([
+      '<meta content="Song Title" property="og:title">',
+      '<meta property="og:description" content="Listen to Song Title on Spotify. Some Artist · Song · 2020">',
+    ].join(''), { status: 200 });
+  };
+  try {
+    const url = 'https://open.spotify.com/track/retryTrack123';
+    assert.equal(await resolveStreamingMetadata(url), null);
+    const meta = await resolveStreamingMetadata(url);
+    assert.equal(meta?.title, 'Song Title');
+    assert.equal(meta?.artist, 'Some Artist');
+  } finally {
+    globalThis.fetch = originalFetch;
+    resetMetadataCache();
+  }
+});
