@@ -13,6 +13,15 @@ if [[ "$(id -u)" -ne 0 ]]; then
   fi
 fi
 
+# Expanding an empty array fails under "set -u" in bash 3.2 (macOS), so branch on its length.
+run_elevated() {
+  if [[ ${#elevate[@]} -gt 0 ]]; then
+    "${elevate[@]}" "$@"
+  else
+    "$@"
+  fi
+}
+
 install_package() {
   local pkg_brew="$1"
   local pkg_apt="$2"
@@ -22,12 +31,12 @@ install_package() {
   if command -v brew >/dev/null 2>&1; then
     brew install "$pkg_brew"
   elif command -v apt-get >/dev/null 2>&1; then
-    "${elevate[@]}" apt-get update -qq
-    "${elevate[@]}" apt-get install -y -qq "$pkg_apt"
+    run_elevated apt-get update -qq
+    run_elevated apt-get install -y -qq "$pkg_apt"
   elif command -v dnf >/dev/null 2>&1; then
-    "${elevate[@]}" dnf install -y -q "$pkg_dnf"
+    run_elevated dnf install -y -q "$pkg_dnf"
   elif command -v pacman >/dev/null 2>&1; then
-    "${elevate[@]}" pacman -Sy --needed --noconfirm "$pkg_pacman"
+    run_elevated pacman -Sy --needed --noconfirm "$pkg_pacman"
   else
     return 1
   fi
@@ -49,8 +58,8 @@ if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0
     brew upgrade node || brew install node
   elif command -v apt-get >/dev/null 2>&1; then
     echo "› Configuring official Node.js LTS repository..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | "${elevate[@]}" bash -
-    "${elevate[@]}" apt-get install -y -qq nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | run_elevated bash -
+    run_elevated apt-get install -y -qq nodejs
   fi
 fi
 
@@ -59,8 +68,8 @@ if ! command -v yt-dlp >/dev/null 2>&1; then
   echo "› Installing yt-dlp..."
   install_package "yt-dlp" "yt-dlp" "yt-dlp" "yt-dlp" || {
     echo "› Downloading standalone yt-dlp binary..."
-    "${elevate[@]}" curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-    "${elevate[@]}" chmod a+rx /usr/local/bin/yt-dlp
+    run_elevated curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+    run_elevated chmod a+rx /usr/local/bin/yt-dlp
   }
 fi
 
