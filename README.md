@@ -185,7 +185,7 @@ irm https://raw.githubusercontent.com/01-Menjivar/TrackCLI/main/install.ps1 | ie
 
 ### Global Install via npm
 ```bash
-npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
+npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/tags/v0.2.2.tar.gz
 ```
 
 ---

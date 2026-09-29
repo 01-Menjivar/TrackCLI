@@ -48,7 +48,7 @@ Write-Host "› Installing TrackCLI..." -ForegroundColor Gray
 if (Test-Path ".\package.json") {
     npm link
 } else {
-    npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
+    npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/tags/v0.2.2.tar.gz
 }
 
 Write-Host ""

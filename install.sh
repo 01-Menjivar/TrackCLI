@@ -86,7 +86,7 @@ echo "› Installing TrackCLI..."
 if [[ -f "./package.json" ]] && grep -q '"name": "trackcli"' "./package.json" 2>/dev/null; then
   npm link
 else
-  npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/heads/main.tar.gz
+  npm install --global https://github.com/01-Menjivar/TrackCLI/archive/refs/tags/v0.2.2.tar.gz
 fi
 
 echo ""
