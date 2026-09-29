@@ -1,6 +1,6 @@
 {
   "name": "trackcli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Terminal audio extractor with heuristic studio track selection and ID3 metadata.",
   "type": "module",
   "author": "01-Menjivar",

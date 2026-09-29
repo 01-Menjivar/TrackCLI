@@ -29,7 +29,7 @@ Most music downloaders from YouTube give you **music videos with 30-second dialo
 4. It extracts audio with high-performance concurrency and embeds **high-resolution cover art and complete ID3 tags**.
 
 ```text
-◆ TrackCLI v0.2.1 · audio extractor
+◆ TrackCLI v0.2.2 · audio extractor
 
 ╭──────────────────────────────────────────────────────────╮
 │ ✦ Spotify album detected (12 tracks)                     │
