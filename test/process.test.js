@@ -74,3 +74,22 @@ test('escapeShellArgForWindows entrecomilla y protege argumentos con metacaracte
   assert.equal(escapeShellArgForWindows('mp3'), 'mp3');
   assert.equal(escapeShellArgForWindows(''), '""');
 });
+
+test('killActiveChildProcesses escala a SIGKILL si el proceso sigue vivo tras SIGTERM', async () => {
+  const stubborn = new EventEmitter();
+  stubborn.exitCode = null;
+  stubborn.signalCode = null;
+  stubborn.killed = false;
+  stubborn.signals = [];
+  stubborn.kill = (sig) => {
+    stubborn.killed = true; // Node marca killed al enviar la señal, aunque el proceso siga vivo
+    stubborn.signals.push(sig);
+  };
+
+  registerChildProcess(stubborn);
+  killActiveChildProcesses();
+  assert.deepEqual(stubborn.signals, ['SIGTERM']);
+
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.deepEqual(stubborn.signals, ['SIGTERM', 'SIGKILL']);
+});

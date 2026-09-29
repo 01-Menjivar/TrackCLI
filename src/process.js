@@ -22,25 +22,34 @@ export function getActiveChildCount() {
   return activeChildren.size;
 }
 
+function isRunning(child) {
+  // child.killed only says a signal was sent, not that the process exited.
+  return child.exitCode == null && child.signalCode == null;
+}
+
+function forceKill(child) {
+  try {
+    if (isRunning(child)) child.kill('SIGKILL');
+  } catch {}
+}
+
 export function killActiveChildProcesses() {
-  for (const child of activeChildren) {
+  const children = [...activeChildren];
+  for (const child of children) {
     try {
-      if (!child.killed) {
+      if (isRunning(child)) {
         if (process.platform === 'win32' && child.pid) {
           try {
             spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
           } catch {}
         }
         child.kill('SIGTERM');
-        setTimeout(() => {
-          try {
-            if (!child.killed) child.kill('SIGKILL');
-          } catch {}
-        }, 250).unref();
+        setTimeout(() => forceKill(child), 250).unref();
       }
     } catch {}
   }
   activeChildren.clear();
+  return children;
 }
 
 export function setupSignalHandlers() {
@@ -51,10 +60,15 @@ export function setupSignalHandlers() {
   const handleSignal = () => {
     if (isTerminating) process.exit(130);
     isTerminating = true;
-    killActiveChildProcesses();
+    const children = killActiveChildProcesses();
     showCursor();
     process.stdout.write('\n\x1b[90m✦ Operation cancelled.\x1b[0m\n');
-    process.exit(130);
+    if (!children.some(isRunning)) process.exit(130);
+    // Give children a moment to exit on SIGTERM, then force-kill survivors before exiting.
+    setTimeout(() => {
+      children.forEach(forceKill);
+      process.exit(130);
+    }, 300);
   };
 
   process.once('SIGINT', handleSignal);
