@@ -12,6 +12,11 @@ export function sanitizePathSegment(name) {
     .slice(0, 120);
 }
 
+// yt-dlp treats "%" as the start of a template field, so literal percent signs must be doubled.
+export function escapeOutputTemplate(value) {
+  return String(value ?? '').replace(/%/g, '%%');
+}
+
 export function sanitizeSearchQuery(query) {
   if (!query || typeof query !== 'string') return '';
   return query
@@ -226,15 +231,15 @@ export function escapeFfmpegMetadata(value) {
 
 export function buildYtDlpArgs(url, options = {}) {
   const targetUrl = sanitizeMediaUrl(url, options);
-  const baseOutput = options.output || 'trackcli-downloads';
+  const baseOutput = escapeOutputTemplate(options.output || 'trackcli-downloads');
   let output;
 
   if (options.metadata) {
     const meta = options.metadata;
     const isAlbum = Boolean(meta.isAlbumTrack || (meta.album && meta.track));
-    const artist = sanitizePathSegment(meta.artist || meta.albumArtist || '');
-    const title = sanitizePathSegment(meta.title || '');
-    const album = sanitizePathSegment(meta.album || '');
+    const artist = escapeOutputTemplate(sanitizePathSegment(meta.artist || meta.albumArtist || ''));
+    const title = escapeOutputTemplate(sanitizePathSegment(meta.title || ''));
+    const album = escapeOutputTemplate(sanitizePathSegment(meta.album || ''));
 
     if (isAlbum && (album || artist)) {
       const folderName = artist && album ? `${artist} - ${album}` : (album || artist);

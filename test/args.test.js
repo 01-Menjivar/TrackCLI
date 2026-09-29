@@ -228,3 +228,13 @@ test('sanitizeSearchQuery normaliza espacios, elimina comillas y caracteres de c
   assert.equal(sanitizeSearchQuery(''), '');
   assert.equal(sanitizeSearchQuery(null), '');
 });
+
+test('buildYtDlpArgs escapa "%" literal en el nombre de salida para yt-dlp', () => {
+  const args = buildYtDlpArgs('https://example.com/audio', {
+    output: '/music/100%',
+    metadata: { artist: 'Artist', title: '100% Love' },
+  });
+  const output = args[args.indexOf('--output') + 1];
+  assert.ok(output.includes('100%% Love.%(ext)s'));
+  assert.ok(output.includes('/music/100%%/'));
+});
