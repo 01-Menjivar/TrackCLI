@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { DEFAULT_CONFIG, getConfigPath, loadConfig, resetConfig, saveConfig, setConfigValue } from '../src/config.js';
 import { parseOptions } from '../src/args.js';
 
@@ -93,4 +93,41 @@ test('parseOptions adopta valores por defecto de la configuración global y perm
   assert.equal(optsOverride.cover, true);
   assert.equal(optsOverride.overwrite, false);
   assert.equal(optsOverride.playlist, false);
+});
+
+async function withTempConfigDir(fn) {
+  const tempDir = await mkdtemp(join(tmpdir(), 'trackcli-config-test-'));
+  const originalEnv = process.env.TRACKCLI_CONFIG_DIR;
+  process.env.TRACKCLI_CONFIG_DIR = tempDir;
+  try {
+    await fn(tempDir);
+  } finally {
+    if (originalEnv === undefined) delete process.env.TRACKCLI_CONFIG_DIR;
+    else process.env.TRACKCLI_CONFIG_DIR = originalEnv;
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+test('loadConfig y setConfigValue fallan con un mensaje claro si el JSON está corrupto, y reset lo repara', async () => {
+  await withTempConfigDir(async () => {
+    await mkdir(dirname(getConfigPath()), { recursive: true });
+    await writeFile(getConfigPath(), '{ not json', 'utf8');
+
+    await assert.rejects(() => loadConfig(), /Invalid configuration file/);
+    await assert.rejects(() => setConfigValue('format', 'opus'), /Invalid configuration file/);
+    assert.equal(await readFile(getConfigPath(), 'utf8'), '{ not json');
+
+    await resetConfig();
+    assert.deepEqual(await loadConfig(), DEFAULT_CONFIG);
+  });
+});
+
+test('setConfigValue y resetConfig no fijan en disco el output por defecto dependiente del cwd', async () => {
+  await withTempConfigDir(async () => {
+    await setConfigValue('format', 'm4a');
+    assert.deepEqual(JSON.parse(await readFile(getConfigPath(), 'utf8')), { format: 'm4a' });
+
+    await resetConfig();
+    assert.deepEqual(JSON.parse(await readFile(getConfigPath(), 'utf8')), {});
+  });
 });

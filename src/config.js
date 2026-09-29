@@ -22,19 +22,31 @@ export function getConfigPath() {
   return join(getConfigDir(), 'config.json');
 }
 
-export async function loadConfig() {
+async function readStoredConfig() {
   const filePath = getConfigPath();
+  let raw;
   try {
-    const raw = await readFile(filePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_CONFIG,
-      ...parsed,
-      output: parsed.output || DEFAULT_CONFIG.output,
-    };
-  } catch {
-    return { ...DEFAULT_CONFIG };
+    raw = await readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return {};
+    throw error;
   }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not an object');
+    return parsed;
+  } catch {
+    throw new Error(`Invalid configuration file: ${filePath}. Fix it or run "trackcli config reset".`);
+  }
+}
+
+export async function loadConfig() {
+  const stored = await readStoredConfig();
+  return {
+    ...DEFAULT_CONFIG,
+    ...stored,
+    output: stored.output || DEFAULT_CONFIG.output,
+  };
 }
 
 export async function saveConfig(config) {
@@ -55,7 +67,8 @@ export async function setConfigValue(key, value) {
     throw new Error(`Invalid configuration key: "${key}". Allowed keys: ${[...validKeys].join(', ')}.`);
   }
 
-  const config = await loadConfig();
+  // Work on what is stored on disk so defaults (e.g. the cwd-based output) are not pinned by an unrelated change.
+  const config = await readStoredConfig();
 
   if (key === 'format') {
     const validFormats = new Set(['mp3', 'm4a', 'opus']);
@@ -82,10 +95,11 @@ export async function setConfigValue(key, value) {
   }
 
   await saveConfig(config);
-  return config;
+  return { ...DEFAULT_CONFIG, ...config };
 }
 
 export async function resetConfig() {
-  await saveConfig(DEFAULT_CONFIG);
+  // Persist an empty config: DEFAULT_CONFIG.output depends on the cwd of the current run.
+  await saveConfig({});
   return { ...DEFAULT_CONFIG };
 }
