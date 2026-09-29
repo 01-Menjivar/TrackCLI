@@ -29,7 +29,7 @@ La mayoría de descargadores de música desde YouTube presentan un gran problema
 4. Extrae el audio con concurrencia controlada e incrusta la **carátula en alta definición y etiquetas ID3 completas**.
 
 ```text
-◆ TrackCLI v0.2.0 · audio extractor
+◆ TrackCLI v0.2.1 · audio extractor
 
 ╭──────────────────────────────────────────────────────────╮
 │ ✦ Álbum de Spotify detectado (12 pistas)                 │
