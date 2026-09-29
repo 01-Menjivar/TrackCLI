@@ -433,7 +433,7 @@ export async function resolveStreamingMetadata(url) {
   }
 }
 
-export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0) {
+export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0, artist = '') {
   let score = 100;
   const title = (song.title || '').toLowerCase();
   const uploader = (song.uploader || '').toLowerCase();
@@ -496,7 +496,7 @@ export function scoreAudioCandidate(song, query = '', targetDurationSeconds = 0)
   }
 
   const queryParts = q.split(/[-–—]/).map((p) => p.trim()).filter(Boolean);
-  const potentialArtist = queryParts.length >= 2 ? queryParts[0] : '';
+  const potentialArtist = String(artist || '').trim().toLowerCase() || (queryParts.length >= 2 ? queryParts[0] : '');
   const isOfficialArtistChannel = (potentialArtist && (uploader.includes(potentialArtist) || channel.includes(potentialArtist))) ||
     uploader.includes('vevo') || channel.includes('vevo') ||
     /\bofficial\b/.test(uploader) || /\bofficial\b/.test(channel);
@@ -597,7 +597,7 @@ async function fetchCandidates(searchQuery) {
   }));
 }
 
-async function executeSongSearch(query, limit = 5, targetDurationSeconds = 0) {
+async function executeSongSearch(query, limit = 5, targetDurationSeconds = 0, artist = '') {
   const cleanQuery = sanitizeSearchQuery(query);
   let candidates = await fetchCandidates(`ytsearch${limit}:${cleanQuery}`);
 
@@ -607,19 +607,19 @@ async function executeSongSearch(query, limit = 5, targetDurationSeconds = 0) {
 
   const scored = candidates.map((song) => ({
     ...song,
-    score: scoreAudioCandidate(song, query, targetDurationSeconds),
+    score: scoreAudioCandidate(song, query, targetDurationSeconds, artist),
   }));
 
   scored.sort((a, b) => b.score - a.score);
   return scored;
 }
 
-export async function searchSongs(query, limit = 5, targetDurationSeconds = 0) {
-  const cacheKey = `${String(query).trim().toLowerCase()}:::${limit}:::${targetDurationSeconds}`;
+export async function searchSongs(query, limit = 5, targetDurationSeconds = 0, artist = '') {
+  const cacheKey = `${String(query).trim().toLowerCase()}:::${limit}:::${targetDurationSeconds}:::${String(artist).trim().toLowerCase()}`;
   if (searchCache.has(cacheKey)) {
     return searchCache.get(cacheKey);
   }
-  const promise = executeSongSearch(query, limit, targetDurationSeconds);
+  const promise = executeSongSearch(query, limit, targetDurationSeconds, artist);
   searchCache.set(cacheKey, promise);
   try {
     return await promise;
@@ -629,8 +629,8 @@ export async function searchSongs(query, limit = 5, targetDurationSeconds = 0) {
   }
 }
 
-export async function findBestAudioSong(query, targetDurationSeconds = 0) {
-  const results = await searchSongs(query, 5, targetDurationSeconds);
+export async function findBestAudioSong(query, targetDurationSeconds = 0, artist = '') {
+  const results = await searchSongs(query, 5, targetDurationSeconds, artist);
   if (!results.length) {
     throw new Error('No audio results found for that search. Try searching with title and artist.');
   }
@@ -726,7 +726,7 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
         const albumConcurrency = concurrency;
         const albumJobs = await mapConcurrent(meta.tracks, albumConcurrency, async (tr) => {
           try {
-            const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
+            const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0, tr.artist);
             return {
               url: song.url,
               metadata: {
@@ -757,7 +757,7 @@ export async function resolveBatchEntries(entries, options = {}, onProgress = nu
 
       if (meta && meta.query) {
         try {
-          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0, meta.artist);
           job = {
             url: song.url,
             metadata: meta,
@@ -965,7 +965,7 @@ export async function runBatchPipeline(entries, options = {}) {
           if (meta?.isAlbum && meta.tracks?.length) {
             const albumTracks = await mapConcurrent(meta.tracks, searchConcurrency, async (tr) => {
               try {
-                const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0);
+                const song = await findBestAudioSong(tr.query, tr.durationSeconds || 0, tr.artist);
                 return {
                   url: song.url,
                   metadata: {
@@ -992,7 +992,7 @@ export async function runBatchPipeline(entries, options = {}) {
             jobList = albumTracks;
           } else if (meta && meta.query) {
             try {
-              const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+              const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0, meta.artist);
               jobList = [{
                 url: song.url,
                 metadata: meta,

@@ -349,7 +349,7 @@ async function executeDownload(tokens, userConfig = {}) {
         console.log(mark('info', `${meta.service}: ${color.bold(meta.title)} · ${meta.artist || color.dim('(unknown)')}${meta.album ? color.dim(` [${meta.album}]`) : ''}\n`));
         const songSpinner = createSpinner(`Locating official audio for ${color.bold(meta.title)}…`);
         try {
-          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0, meta.artist);
           jobs.push({ url: song.url, metadata: meta });
         } finally {
           songSpinner.stop();
@@ -379,7 +379,7 @@ async function executeDownload(tokens, userConfig = {}) {
       }
       if (meta.query) {
         try {
-          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0);
+          const song = await findBestAudioSong(meta.query, meta.durationSeconds || 0, meta.artist);
           return [{ url: song.url, metadata: meta }];
         } catch {
           return [{ url: `ytsearch1:${meta.query} audio`, metadata: meta }];

@@ -517,3 +517,9 @@ test('scoreAudioCandidate compara palabras completas en la consulta y en los nom
   assert.equal(scoreAudioCandidate({ ...base, uploader: 'Unofficial Fan' }, 'Slowdive Alison'), plain);
   assert.ok(scoreAudioCandidate({ ...base, uploader: 'Slowdive Official' }, 'Slowdive Alison') > plain);
 });
+
+test('scoreAudioCandidate usa el artista explícito para reconocer el canal oficial sin guion en la consulta', () => {
+  const song = { title: 'Get Lucky', uploader: 'Daft Punk', channel: 'Daft Punk', duration: '4:09' };
+  const query = 'Daft Punk Get Lucky';
+  assert.ok(scoreAudioCandidate(song, query, 249, 'Daft Punk') > scoreAudioCandidate(song, query, 249));
+});
