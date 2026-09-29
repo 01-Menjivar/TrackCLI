@@ -873,7 +873,19 @@ export async function downloadOne(url, options = {}, position) {
   });
 }
 
+// Repeated URLs would race to write the same file when downloading concurrently.
+function dedupeJobs(jobs) {
+  const seen = new Set();
+  return jobs.filter((entry) => {
+    const url = typeof entry === 'string' ? entry : entry.url;
+    if (seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+}
+
 export async function runQueue(jobs, options = {}) {
+  jobs = dedupeJobs(jobs);
   const output = resolve(options.output);
   await mkdir(output, { recursive: true });
   const concurrency = normalizeConcurrency(options.concurrency);
@@ -924,6 +936,7 @@ export async function runBatchPipeline(entries, options = {}) {
   const isConcurrent = sanitizedEntries.length > 1;
 
   const readyJobs = [];
+  const queuedUrls = new Set();
   const results = [];
   let resolutionDone = false;
   let resolutionError = null;
@@ -1017,7 +1030,9 @@ export async function runBatchPipeline(entries, options = {}) {
           }
         }
 
-        for (const j of jobList) {
+        for (const j of dedupeJobs(jobList)) {
+          if (queuedUrls.has(j.url)) continue;
+          queuedUrls.add(j.url);
           readyJobs.push(j);
         }
         signalUpdate();

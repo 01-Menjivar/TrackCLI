@@ -475,3 +475,30 @@ test('no cachea fallos de metadatos: reintenta tras un error de red transitorio'
     resetMetadataCache();
   }
 });
+
+test('runQueue y runBatchPipeline no descargan dos veces la misma URL', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'trackcli-test-'));
+  const captureFile = join(directory, 'args.jsonl');
+  await createFakeYtDlp(directory, ['[download] Destination: pista.webm']);
+  const originalPath = process.env.PATH;
+  const originalCaptureFile = process.env.TRACKCLI_CAPTURE_ARGS;
+  process.env.PATH = `${directory}${delimiter}${originalPath}`;
+  process.env.TRACKCLI_CAPTURE_ARGS = captureFile;
+  const options = { format: 'mp3', output: join(directory, 'audio'), concurrency: 3, overwrite: true };
+  const countCalls = async () => (await readFile(captureFile, 'utf8')).trim().split(/\r?\n/).filter(Boolean)
+    .map((line) => JSON.parse(line)).filter((inv) => inv.includes('https://example.com/dup.mp3')).length;
+  try {
+    const queued = await runQueue(['https://example.com/dup.mp3', 'https://example.com/dup.mp3'], options);
+    assert.equal(queued.length, 1);
+    assert.equal(await countCalls(), 1);
+
+    await writeFile(captureFile, '');
+    const piped = await runBatchPipeline(['https://example.com/dup.mp3', 'https://example.com/dup.mp3'], options);
+    assert.equal(piped.length, 1);
+    assert.equal(await countCalls(), 1);
+  } finally {
+    process.env.PATH = originalPath;
+    if (originalCaptureFile === undefined) delete process.env.TRACKCLI_CAPTURE_ARGS;
+    else process.env.TRACKCLI_CAPTURE_ARGS = originalCaptureFile;
+  }
+});
